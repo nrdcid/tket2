@@ -8,6 +8,7 @@ resources_dir = Path(__file__).parent / "resources"
 
 triples = [
     "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
     "x86_64-apple-darwin",
     # TODO: The test doesn't seem to like Apple Silicon, it throws a warning
     # > 'aarch64' is not a recognized processor for this target (ignoring processor)
@@ -15,7 +16,7 @@ triples = [
     "x86_64-windows-msvc",
 ]
 
-platforms = ["Helios", "Sol"]
+platforms = ["helios", "sol"]
 
 
 def load(name: str) -> bytes:
@@ -36,6 +37,7 @@ def load(name: str) -> bytes:
         "rng",
         "rus",
         "qft_32",
+        "addition_3_11"
     ],
 )
 @pytest.mark.parametrize("target_triple", triples)

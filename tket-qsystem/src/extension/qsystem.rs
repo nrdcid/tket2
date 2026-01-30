@@ -46,7 +46,7 @@ pub use lower::{LowerTk2Error, LowerTketToQSystemPass, check_lowered, lower_tk2_
 /// The "tket.qsystem" extension id.
 pub const EXTENSION_ID: ExtensionId = ExtensionId::new_unchecked("tket.qsystem");
 /// The "tket.qsystem" extension version.
-pub const EXTENSION_VERSION: Version = Version::new(0, 5, 0);
+pub const EXTENSION_VERSION: Version = Version::new(0, 5, 1);
 
 lazy_static! {
     /// The "tket.qsystem" extension.
@@ -102,11 +102,11 @@ pub enum QSystemOp {
     LazyMeasure,
     /// Lazily measure a qubit and reset it to the Z |0> eigenstate.
     LazyMeasureReset,
-    /// Rotate a qubit around the Z axis. Not physical.
+    /// Rotate a qubit around the Z axis, not physical (alias 'rz')
     Rz,
-    /// PhasedX gate.
+    /// PhasedX gate (aliases 'rxy', 'rp').
     PhasedX,
-    /// ZZ gate with an angle.
+    /// ZZ gate with an angle, helios-only (alias 'rzz').
     ZZPhase,
     /// Allocate a qubit in the Z |0> eigenstate.
     TryQAlloc,
@@ -118,11 +118,11 @@ pub enum QSystemOp {
     MeasureReset,
     /// Measure a qubit (return 0 or 1) or detect leakage (return 2).
     LazyMeasureLeaked,
-    /// PhasedXX gate, sol-only (rpp)
+    /// PhasedXX gate, sol-only (alias 'rpp')
     PhasedXX,
-    /// NPhasedX with N=2, sol-only (rpg)
+    /// NPhasedX with N=2, sol-only (alias 'rpg')
     TwinPhasedX,
-    /// Tk2 gate, sol-only (rxxyyzz)
+    /// Tk2 gate, sol-only (alias 'rxxyyzz')
     Tk2,
 }
 

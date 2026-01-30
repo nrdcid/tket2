@@ -411,13 +411,13 @@ pub fn get_opt_level(opt_level: u32) -> Result<OptimizationLevel> {
     }
 }
 
-/// Get the QSystemPlatform from the given string. Can be "Helios" or "Sol".
+/// Get the QSystemPlatform from the given string. Can be "helios" or "sol".
 pub fn get_platform(platform: &str) -> Result<qsystem::QSystemPlatform> {
-    match platform {
-        "Helios" => Ok(qsystem::QSystemPlatform::Helios),
-        "Sol" => Ok(qsystem::QSystemPlatform::Sol),
+    match platform.to_lowercase().as_str() {
+        "helios" => Ok(qsystem::QSystemPlatform::Helios),
+        "sol" => Ok(qsystem::QSystemPlatform::Sol),
         _ => Err(anyhow!(
-            "Unknown platform: {platform} (expected 'Helios' or 'Sol')"
+            "Unknown platform: {platform} (expected 'helios' or 'sol')"
         )),
     }
 }
@@ -450,7 +450,7 @@ mod selene_hugr_qis_compiler {
 
     /// Compile HUGR package to LLVM IR string
     #[pyfunction]
-    #[pyo3(signature = (pkg_bytes, opt_level=2, target_triple="native", platform="Helios"))]
+    #[pyo3(signature = (pkg_bytes, opt_level=2, target_triple="native", platform="helios"))]
     pub fn compile_to_llvm_ir(
         pkg_bytes: &[u8],
         opt_level: u32,
@@ -476,7 +476,7 @@ mod selene_hugr_qis_compiler {
 
     /// Compile HUGR package to LLVM bitcode
     #[pyfunction]
-    #[pyo3(signature = (pkg_bytes, opt_level=2, target_triple="native", platform="Helios"))]
+    #[pyo3(signature = (pkg_bytes, opt_level=2, target_triple="native", platform="helios"))]
     pub fn compile_to_bitcode(
         pkg_bytes: &[u8],
         opt_level: u32,

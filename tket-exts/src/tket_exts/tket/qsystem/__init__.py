@@ -124,15 +124,15 @@ class QSystemExtension(TketExtension):
 
     @functools.cached_property
     def phasedXX(self) -> ExtOp:
-        """Two-qubit XX gate (rpp)."""
+        """Two-qubit XX gate (alias 'rpp')."""
         return self().get_op("PhasedXX").instantiate()
 
     @functools.cached_property
     def twinPhasedX(self) -> ExtOp:
-        """Native 2-phasedX gate with two float parameters (rpg)."""
+        """Native 2-phasedX gate with two float parameters (alias 'rpg')."""
         return self().get_op("TwinPhasedX").instantiate()
 
     @functools.cached_property
     def tk2(self) -> ExtOp:
-        """Tk2 gate (rxxyyzz)."""
+        """Tk2 gate (alias 'rxxyyzz')."""
         return self().get_op("Tk2").instantiate()

@@ -65,7 +65,9 @@ impl QSystemEmitter {
             QSystemOp::PhasedXX => {
                 return Ok(EncodeStatus::Unsupported);
             }
-            QSystemOp::TwinPhasedX => PytketOptype::NPhasedX, // TODO
+            // TODO: when tket adds a native TwinPhasedX operation it would
+            // be a better choice.
+            QSystemOp::TwinPhasedX => PytketOptype::NPhasedX,
             QSystemOp::Tk2 => PytketOptype::TK2,
             QSystemOp::Reset => PytketOptype::Reset,
             QSystemOp::QFree => {
