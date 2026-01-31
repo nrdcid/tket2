@@ -14,6 +14,7 @@ use crate::extension::rotation::ConstRotation;
 use crate::hugr::HugrView;
 use crate::hugr::Node;
 use crate::hugr::NodeIndex;
+use crate::hugr::algorithms::inline_acyclic;
 use crate::hugr::hugr::{ValidationError, hugrmut::HugrMut};
 use crate::passes::guppy::{NormalizeGuppy, NormalizeGuppyErrors};
 use crate::{Hugr, hugr, op_matches};
@@ -307,6 +308,8 @@ pub fn apply_gridsynth_pass(
     epsilon: f64,
     simplify: bool,
 ) -> Result<(), GridsynthError> {
+    // Inline all calls: hack for now
+    let _ = inline_acyclic(hugr, |_,_| true);
     // Running passes to convert HUGR to standard form
     NormalizeGuppy::default()
         .simplify_cfgs(true)
