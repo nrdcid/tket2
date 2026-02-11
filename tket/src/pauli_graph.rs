@@ -16,9 +16,33 @@ use crate::pauli_graph::{
 };
 
 #[derive(Debug, Clone)]
+pub struct PauliGadget {
+    pub string: PauliString,
+    pub angle: f64,
+}
+
+impl PauliGadget {
+    pub fn new(string: PauliString, angle: f64) -> Self {
+        Self { string, angle }
+    }
+
+    pub fn is_clifford(&self) -> Option<u8> {
+        let normalized = (self.angle % 2.0 + 2.0) % 2.0;
+        let quarter = normalized * 2.0;
+        let rounded = quarter.round();
+
+        if (quarter - rounded).abs() < 1e-10 {
+            Some((rounded as i32 % 4) as u8)
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct PauliGraph {
     pub nb_qubits: usize,
-    pub pauli_strings: Vec<PauliString>,
+    pub pauli_gadgets: Vec<PauliGadget>,
     pub tab: ColMajorTableau,
     pub graph: StableDiGraph::<(), ()>,
 }
@@ -27,7 +51,7 @@ impl PauliGraph {
     pub fn new(nb_qubits: usize) -> Self {
         PauliGraph {
             nb_qubits: nb_qubits,
-            pauli_strings: Vec::new(),
+            pauli_gadgets: Vec::new(),
             tab: ColMajorTableau::new(nb_qubits),
             graph: StableDiGraph::<(), ()>::new(),
         }
@@ -90,11 +114,12 @@ impl PauliGraph {
                         pauli_graph.tab.prepend(TketOp::CX, qubits.clone());
                     }
                     TketOp::T => {
-                        pauli_graph.pauli_strings.push(pauli_graph.tab.stabs[qubits[0]].clone());
+                        let pauli_gadget = PauliGadget::new(pauli_graph.tab.stabs[qubits[0]].clone(), 0.25);
+                        pauli_graph.pauli_gadgets.push(pauli_gadget);
                         let u = pauli_graph.graph.add_node(());
                         let node_indices = pauli_graph.graph.node_indices().collect::<Vec<_>>();
                         for v in node_indices {
-                            if !pauli_graph.pauli_strings[v.index()].commutes_with(&pauli_graph.pauli_strings[u.index()]) {
+                            if !pauli_graph.pauli_gadgets[v.index()].string.commutes_with(&pauli_graph.pauli_gadgets[u.index()].string) {
                                 pauli_graph.graph.add_edge(v, u, ());
                             }
                         }
@@ -120,11 +145,11 @@ mod tests {
     #[test]
     fn test_from_circuit_with_t_gates() {
         let circ = build_simple_circuit(2, |circ| {
-            circ.append(TketOp::T, [0])?;  // Node 0 = ZI
+            circ.append(TketOp::T, [0])?;
             circ.append(TketOp::H, [0])?;
             circ.append(TketOp::CX, [0, 1])?;
-            circ.append(TketOp::T, [0])?;  // Node 1 = XZ
-            circ.append(TketOp::T, [1])?;  // Node 2 = XI
+            circ.append(TketOp::T, [0])?;
+            circ.append(TketOp::T, [1])?;
             Ok(())
         })
         .unwrap();
@@ -132,30 +157,33 @@ mod tests {
         let pauli_graph = PauliGraph::from(&circ);
         
         assert_eq!(pauli_graph.nb_qubits, 2);
-        assert_eq!(pauli_graph.pauli_strings.len(), 3);
+        assert_eq!(pauli_graph.pauli_gadgets.len(), 3);
         assert_eq!(pauli_graph.graph.node_count(), 3);
 
 
-        // String 0 = ZI
-        let p0 = &pauli_graph.pauli_strings[0];
-        assert!(p0.z.get(0));
-        assert!(!p0.x.get(0));
-        assert!(!p0.z.get(1));
-        assert!(!p0.x.get(1));
+        // gadget_0 = {ZI, 0.25}
+        let gadget_0 = &pauli_graph.pauli_gadgets[0];
+        assert!(gadget_0.string.z.get(0));
+        assert!(!gadget_0.string.x.get(0));
+        assert!(!gadget_0.string.z.get(1));
+        assert!(!gadget_0.string.x.get(1));
+        assert_eq!(gadget_0.angle, 0.25);
 
-        // String 1 = XZ
-        let string_1 = &pauli_graph.pauli_strings[1];
-        assert!(!string_1.z.get(0));
-        assert!(string_1.x.get(0));
-        assert!(string_1.z.get(1));
-        assert!(!string_1.x.get(1));
+        // gadget_1 = {XZ, 0.25}
+        let gadget_1 = &pauli_graph.pauli_gadgets[1];
+        assert!(!gadget_1.string.z.get(0));
+        assert!(gadget_1.string.x.get(0));
+        assert!(gadget_1.string.z.get(1));
+        assert!(!gadget_1.string.x.get(1));
+        assert_eq!(gadget_1.angle, 0.25);
 
-        //String 2 =XI
-        let string_2 = &pauli_graph.pauli_strings[2];
-        assert!(!string_2.z.get(0));
-        assert!(string_2.x.get(0));
-        assert!(!string_2.z.get(1));
-        assert!(!string_2.x.get(1));
+        // gadget_2 = {XI, 0.25}
+        let gadget_2 = &pauli_graph.pauli_gadgets[2];
+        assert!(!gadget_2.string.z.get(0));
+        assert!(gadget_2.string.x.get(0));
+        assert!(!gadget_2.string.z.get(1));
+        assert!(!gadget_2.string.x.get(1));
+        assert_eq!(gadget_2.angle, 0.25);
 
         use petgraph::stable_graph::NodeIndex;
         let n0 = NodeIndex::new(0);
