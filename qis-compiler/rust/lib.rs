@@ -24,6 +24,7 @@ use std::error::Error;
 use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::vec::Vec;
 use std::{fs, str, vec};
 use tket::extension::rotation::ROTATION_EXTENSION;
@@ -34,7 +35,7 @@ use tket::hugr::std_extensions::arithmetic::{
 };
 use tket::hugr::std_extensions::{collections, logic, ptr};
 use tket::hugr::{self, llvm::inkwell};
-use tket::hugr::{Hugr, HugrView, Node};
+use tket::hugr::{Extension, Hugr, HugrView, Node};
 use tket::llvm::rotation::RotationCodegenExtension;
 use tket_qsystem::QSystemPass;
 use tket_qsystem::extension::{futures as qsystem_futures, qsystem, result as qsystem_result};
@@ -45,7 +46,7 @@ use tket_qsystem::llvm::{
     random::RandomCodegenExtension, result::ResultsCodegenExtension, utils::UtilsCodegenExtension,
 };
 use tracing::{Level, event, instrument};
-use utils::read_hugr_envelope;
+// use utils::read_hugr_envelope;
 
 mod gpu;
 mod selene_specific;
@@ -54,7 +55,58 @@ mod utils;
 const LLVM_MAIN: &str = "qmain";
 const METADATA: &[(&str, &[&str])] = &[("name", &["mainlib"])];
 
-static REGISTRY: std::sync::LazyLock<ExtensionRegistry> = std::sync::LazyLock::new(|| {
+pub struct CompilerBuilder {
+    /// TODO docs
+    args: CompileArgs,
+    codegen: CodegenExtsBuilder<'static, Hugr>,
+}
+
+pub struct Compiler {
+    /// TODO docs
+    args: CompileArgs,
+    codegen: Rc<CodegenExtsMap<'static, Hugr>>,
+}
+
+impl CompilerBuilder {
+    pub fn new(args: CompileArgs) -> Self {
+        Self {
+            args,
+            codegen: CodegenExtsBuilder::default(),
+        }
+    }
+
+    pub fn codegen_extension(&mut self) -> &mut CodegenExtsBuilder<'static, Hugr> {
+        &mut self.codegen
+    }
+
+    /// TODO docs
+    pub fn finish(self) -> Compiler {
+        Compiler {
+            args: self.args, 
+            codegen: Rc::new(self.codegen.finish()),
+        }
+    }
+}
+
+impl Compiler {
+    /// TODO docs
+    
+    pub fn new_with_everything(args: CompileArgs) -> Self {
+        Self {
+            args, 
+             codegen: Rc::new(default_codegen_extensions().finish()),
+        }
+    }
+}
+// impl Default for Compiler {
+//     fn default() -> Self {
+//         let registry = DEFAULT_REGISTRY.to_owned();
+//         let codegen = Rc::new(default_codegen_extensions());
+//         Self { registry, codegen }
+//     }
+// }
+
+pub static DEFAULT_REGISTRY: std::sync::LazyLock<ExtensionRegistry> = std::sync::LazyLock::new(|| {
     ExtensionRegistry::new([
         prelude::PRELUDE.to_owned(),
         int_types::EXTENSION.to_owned(),
@@ -146,7 +198,7 @@ fn process_hugr(hugr: &mut Hugr) -> Result<()> {
     Ok(())
 }
 
-fn codegen_extensions() -> CodegenExtsMap<'static, Hugr> {
+pub fn default_codegen_extensions() -> CodegenExtsBuilder<'static, Hugr> {
     use array::SeleneHeapArrayCodegen;
     let pcg = QISPreludeCodegen;
     CodegenExtsBuilder::default()
@@ -170,43 +222,47 @@ fn codegen_extensions() -> CodegenExtsMap<'static, Hugr> {
         // State results use standard arrays.
         .add_extension(DebugCodegenExtension::new(SeleneHeapArrayCodegen::LOWERING))
         .add_extension(gpu::GpuCodegen)
-        .finish()
 }
 
-/// given an LLVM context and hugr, compile to an LLVM module.
-/// Returns the LLVM Module and the [Node] of the entry point.
-fn get_module_with_std_exts<'c>(
-    args: &CompileArgs,
-    context: &'c Context,
-    namer: Rc<Namer>,
-    hugr: &'c mut Hugr,
-) -> Result<Module<'c>> {
-    process_hugr(hugr)?;
-    if let Some(filename) = &args.save_hugr {
-        let file = fs::File::create(PathBuf::from(filename))?;
-        hugr.store(file, EnvelopeConfig::text())?;
+impl Compiler {
+    /// given an LLVM context and hugr, compile to an LLVM module.
+    /// Returns the LLVM Module and the [Node] of the entry point.
+    fn get_module_with_std_exts<'c>(
+        &self,
+        context: &'c Context,
+        namer: Rc<Namer>,
+        hugr: &'c mut Hugr,
+    ) -> Result<Module<'c>> {
+        process_hugr(hugr)?;
+        if let Some(filename) = &self.args.save_hugr {
+            let file = fs::File::create(PathBuf::from(filename))?;
+            hugr.store(file, EnvelopeConfig::text())?;
+        }
+        get_hugr_llvm_module(
+            context,
+            namer,
+            hugr,
+            &self.args.name,
+            self.codegen.clone(),
+        )
     }
-    get_hugr_llvm_module(
-        context,
-        namer,
-        hugr,
-        &args.name,
-        Rc::new(codegen_extensions()),
-    )
 }
 
-/// Optimize the module using LLVM passes
-fn optimize_module(module: &Module, args: &CompileArgs) -> Result<()> {
-    let opt_str = match args.opt_level {
-        OptimizationLevel::Aggressive => "default<O3>",
-        OptimizationLevel::Less => "default<O1>",
-        OptimizationLevel::None => "default<O0>",
-        OptimizationLevel::Default => "default<O2>",
-    };
-    module
-        .run_passes(opt_str, args.target_machine, PassBuilderOptions::create())
-        .map_err(Into::<ProcessErrs>::into)?;
-    Ok(())
+
+impl Compiler {
+    /// Optimize the module using LLVM passes
+    fn optimize_module(&self, module: &Module) -> Result<()> {
+        let opt_str = match self.args.opt_level {
+            OptimizationLevel::Aggressive => "default<O3>",
+            OptimizationLevel::Less => "default<O1>",
+            OptimizationLevel::None => "default<O0>",
+            OptimizationLevel::Default => "default<O2>",
+        };
+        module
+            .run_passes(opt_str, &self.args.target_machine, PassBuilderOptions::create())
+            .map_err(Into::<ProcessErrs>::into)?;
+        Ok(())
+    }
 }
 
 fn get_entry_point_name(namer: &Namer, hugr: &impl HugrView<Node = Node>) -> Result<String> {
@@ -278,23 +334,23 @@ fn wrap_main<'c>(
 }
 
 #[derive(Debug)]
-struct CompileArgs<'a> {
+pub struct CompileArgs {
     /// Entry point symbol
-    entry: Option<String>,
+    pub entry: Option<String>,
     /// LLVM module name
-    name: String,
+    pub name: String,
     /// Save Hugr to file
-    save_hugr: Option<String>,
+    pub save_hugr: Option<String>,
     /// Target machine
-    target_machine: &'a TargetMachine,
+    pub target_machine: TargetMachine,
     /// Optimization level
-    opt_level: OptimizationLevel,
+    pub opt_level: OptimizationLevel,
 }
 
-impl<'a> CompileArgs<'a> {
+impl CompileArgs {
     fn new(
         name: &impl ToString,
-        target_machine: &'a TargetMachine,
+        target_machine: TargetMachine,
         opt_level: OptimizationLevel,
     ) -> Self {
         Self {
@@ -307,54 +363,57 @@ impl<'a> CompileArgs<'a> {
     }
 }
 
-/// Compile the given HUGR to an LLVM module.
-/// This function is the primary entry point for the compiler.
-#[instrument(skip(ctx, hugr),parent = None)]
-fn compile<'c, 'hugr: 'c>(
-    args: &CompileArgs,
-    ctx: &'c Context,
-    hugr: &'hugr mut Hugr,
-) -> Result<Module<'c>> {
-    event!(Level::DEBUG, "starting primary compilation");
-    let namer = Rc::new(Namer::new("__hugr__.", true));
+impl Compiler {
 
-    // Find the name of the LLVM function that corresponds to the entry point in
-    // the HUGR.
-    let hugr_entry = get_entry_point_name(&namer, hugr)?;
+    /// Compile the given HUGR to an LLVM module.
+    /// This function is the primary entry point for the compiler.
+    #[instrument(skip(self, ctx, hugr),parent = None)]
+    fn compile<'c, 'hugr: 'c>(
+        &self, 
+        ctx: &'c Context,
+        hugr: &'hugr mut Hugr,
+    ) -> Result<Module<'c>> {
+        event!(Level::DEBUG, "starting primary compilation");
+        let namer = Rc::new(Namer::new("__hugr__.", true));
 
-    // The name of the entry point in the LLVM module.
-    // The function will wrap `hugr_entry`.
-    let module_entry = args.entry.as_ref().map_or(LLVM_MAIN, |x| x.as_ref());
+        // Find the name of the LLVM function that corresponds to the entry point in
+        // the HUGR.
+        let hugr_entry = get_entry_point_name(&namer, hugr)?;
 
-    // Create a new LLVM module using hugr-llvm
-    let module = get_module_with_std_exts(args, ctx, namer, hugr)?;
+        // The name of the entry point in the LLVM module.
+        // The function will wrap `hugr_entry`.
+        let module_entry = self.args.entry.as_ref().map_or(LLVM_MAIN, |x| x.as_ref());
 
-    wrap_main(ctx, &module, &hugr_entry, module_entry)?;
+        // Create a new LLVM module using hugr-llvm
+        let module = self.get_module_with_std_exts(ctx, namer, hugr)?;
 
-    let (data_layout, triple) = {
-        (
-            args.target_machine.get_target_data().get_data_layout(),
-            args.target_machine.get_triple(),
-        )
-    };
-    module.set_triple(&triple);
-    module.set_data_layout(&data_layout);
+        wrap_main(ctx, &module, &hugr_entry, module_entry)?;
 
-    optimize_module(&module, args)?;
+        let (data_layout, triple) = {
+            (
+                self.args.target_machine.get_target_data().get_data_layout(),
+                self.args.target_machine.get_triple(),
+            )
+        };
+        module.set_triple(&triple);
+        module.set_data_layout(&data_layout);
 
-    // Add metadata to the module
-    for (key, values) in METADATA {
-        let md_vec = values
-            .iter()
-            .map(|v| ctx.metadata_string(v).into())
-            .collect::<Vec<_>>();
-        let node = ctx.metadata_node(md_vec.as_slice());
-        let _ = module
-            .add_global_metadata(key, &node)
-            .map_err(ProcessErrs::from);
+        self.optimize_module(&module)?;
+
+        // Add metadata to the module
+        for (key, values) in METADATA {
+            let md_vec = values
+                .iter()
+                .map(|v| ctx.metadata_string(v).into())
+                .collect::<Vec<_>>();
+            let node = ctx.metadata_node(md_vec.as_slice());
+            let _ = module
+                .add_global_metadata(key, &node)
+                .map_err(ProcessErrs::from);
+        }
+        module.verify().map_err(Into::<ProcessErrs>::into)?;
+        Ok(module)
     }
-    module.verify().map_err(Into::<ProcessErrs>::into)?;
-    Ok(module)
 }
 
 /// Get the Inkwell TargetMachine for the current platform, given
@@ -415,16 +474,18 @@ mod exceptions {
 }
 #[pymodule]
 mod selene_hugr_qis_compiler {
+    use crate::utils::read_hugr_envelope;
+
     use super::{
-        CompileArgs, Context, Hugr, PyResult, compile, get_native_target_machine, get_opt_level,
-        get_target_machine_from_triple, pyfunction, read_hugr_envelope,
+        CompileArgs, Context, Hugr, PyResult, get_native_target_machine, get_opt_level,
+        get_target_machine_from_triple, pyfunction, Compiler, DEFAULT_REGISTRY
     };
 
     #[pymodule_export]
     use super::exceptions::HugrReadError;
 
     fn py_read_envelope(pkg_bytes: &[u8]) -> PyResult<Hugr> {
-        read_hugr_envelope(pkg_bytes).map_err(|e| HugrReadError::new_err(format!("{e:?}")))
+        read_hugr_envelope(pkg_bytes, &DEFAULT_REGISTRY).map_err(|e| HugrReadError::new_err(format!("{e:?}")))
     }
 
     /// Load serialized HUGR and validate it
@@ -449,8 +510,8 @@ mod selene_hugr_qis_compiler {
         }?;
         let mut hugr = py_read_envelope(pkg_bytes)?;
         let ctx = Context::create();
-        let llvm_module = compile(
-            &CompileArgs::new(&"hugr", &target_machine, opt),
+        let compiler = Compiler::new_with_everything(CompileArgs::new(&"hugr", target_machine, opt));
+        let llvm_module = compiler.compile(
             &ctx,
             &mut hugr,
         )?;
@@ -472,9 +533,9 @@ mod selene_hugr_qis_compiler {
             get_target_machine_from_triple(target_triple, opt)
         }?;
         let mut hugr = py_read_envelope(pkg_bytes)?;
+        let compiler = Compiler::new_with_everything(CompileArgs::new(&"hugr", target_machine, opt));
         let ctx = Context::create();
-        let llvm_module = compile(
-            &CompileArgs::new(&"hugr", &target_machine, opt),
+        let llvm_module = compiler.compile(
             &ctx,
             &mut hugr,
         )?;
