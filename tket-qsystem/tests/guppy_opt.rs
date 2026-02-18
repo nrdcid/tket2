@@ -1,5 +1,10 @@
 //! Tests optimizing Guppy-generated programs.
 
+use hugr::algorithms::const_fold::ConstantFoldPass;
+use hugr::algorithms::inline_dfgs::InlineDFGsPass;
+use hugr::hugr::hugrmut::HugrMut;
+use hugr::hugr::patch::peel_loop::PeelTailLoop;
+use itertools::Itertools;
 use rayon::iter::ParallelIterator;
 use smol_str::SmolStr;
 use std::collections::HashMap;
@@ -8,7 +13,7 @@ use std::io::BufReader;
 use std::path::Path;
 use tket::extension::{TKET_EXTENSION_ID, TKET1_EXTENSION_ID};
 
-use hugr::algorithms::ComposablePass;
+use hugr::algorithms::{ComposablePass, inline_acyclic};
 use hugr::{Hugr, HugrView};
 use rstest::rstest;
 use tket::Circuit;
@@ -121,6 +126,35 @@ fn optimize_flattened_guppy(#[case] name: &str, #[case] xfail: Option<Vec<(&str,
     if should_xfail {
         panic!("xfail");
     }
+}
+
+#[test]
+#[cfg_attr(miri, ignore)] // Opening files is not supported in (isolated) miri
+fn optimize_tail_loop() {
+    let mut hugr = load_guppy_circuit("loop_comprehension", HugrFileType::Original).unwrap();
+    inline_acyclic(&mut hugr, |_,_|true).unwrap();
+    NormalizeGuppy::default().run(&mut hugr).unwrap();
+    hugr.set_entrypoint(hugr.module_root());
+    let m = hugr
+        .children(hugr.module_root())
+        .filter(|n| hugr.get_optype(*n).as_func_defn().is_some_and(|fd| fd.func_name() == "main"))
+        .exactly_one()
+        .ok().unwrap();
+    let mut i=0;
+    loop {
+        eprintln!("**ALAN ITER {i}** {}\n", hugr.mermaid_string());
+        i+=1;
+        let loops = hugr.children(m).filter(|n| hugr.get_optype(*n).is_tail_loop()).collect_vec();
+        if loops.is_empty() {
+            break
+        }
+        for n in loops {
+            hugr.apply_patch(PeelTailLoop::new(n)).unwrap();
+        }
+        InlineDFGsPass.run(&mut hugr).unwrap();
+        ConstantFoldPass::default().run(&mut hugr).unwrap();
+    }
+
 }
 
 #[rstest]

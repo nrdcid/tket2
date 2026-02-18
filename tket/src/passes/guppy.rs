@@ -90,6 +90,13 @@ impl<H: HugrMut<Node = Node> + 'static> ComposablePass<H> for NormalizeGuppy {
     type Error = NormalizeGuppyErrors;
     type Result = ();
     fn run(&self, hugr: &mut H) -> Result<Self::Result, Self::Error> {
+        // Only improves compilation speed, not affected by anything else
+        // until we start removing untaken branches
+        if self.dead_funcs {
+            RemoveDeadFuncsPass::default().run(hugr)?;
+        }
+        let ep: Node = hugr.entrypoint();
+        hugr.set_entrypoint(hugr.module_root());
         if self.simplify_cfgs {
             NormalizeCFGPass::default().run(hugr)?;
         }
@@ -100,11 +107,6 @@ impl<H: HugrMut<Node = Node> + 'static> ComposablePass<H> for NormalizeGuppy {
         // Should propagate through untuple, so could do earlier, and must be before BorrowSquash
         if self.constant_fold {
             ConstantFoldPass::default().run(hugr)?;
-        }
-        // Only improves compilation speed, not affected by anything else
-        // until we start removing untaken branches
-        if self.dead_funcs {
-            RemoveDeadFuncsPass::default().run(hugr)?;
         }
         // Do earlier? Nothing creates DFGs
         if self.inline_dfgs {
@@ -124,7 +126,7 @@ impl<H: HugrMut<Node = Node> + 'static> ComposablePass<H> for NormalizeGuppy {
                 .run(hugr)
                 .map_err(NormalizeGuppyErrors::RedundantOrderEdges)?;
         }
-
+        hugr.set_entrypoint(ep);
         Ok(())
     }
 }
