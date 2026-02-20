@@ -91,13 +91,7 @@ jobs:
           #  manylinux: "musllinux_1_2"
           - runner: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
-            # Note: The runner image uses GLIBC 2.39, but we verified that the
-            # tket-c-api build works with GLIBC 2.34.
-            #
-            # This is a temporary workaround until we use a pre-built c-api library.
-            # <https://github.com/Quantinuum/tket2/issues/1272>
-            # <https://github.com/Quantinuum/tket2/pull/1271>
-            manylinux: "manylinux_2_34"
+            manylinux: "manylinux_2_28"
             test-wheels: true
           - runner: ubuntu-24.04
             target: x86_64-unknown-linux-musl
@@ -137,65 +131,6 @@ jobs:
         with:
           cache_packages: true
 
-      - name: Set up conan
-        shell: bash
-        run: |
-          conan profile detect --force
-          conan remote add tket-libs https://quantinuumsw.jfrog.io/artifactory/api/conan/tket1-libs --index 0 || true
-
-      - name: Compute tket-c-api paths
-        id: tket-paths
-        shell: bash
-        run: |
-          echo "RUNNER_OS=$RUNNER_OS"
-          WORKSPACE="${{ github.workspace }}"
-
-          case "$RUNNER_OS" in
-            Windows)
-              echo "tket_c_api_path=$WORKSPACE\tket-c-api" >> $GITHUB_OUTPUT
-              echo "TKET_C_API_PATH=$WORKSPACE\tket-c-api" >> $GITHUB_ENV
-              echo "$WORKSPACE\tket-c-api\lib" >> $GITHUB_PATH
-              echo "$WORKSPACE\tket-c-api\bin" >> $GITHUB_PATH
-              echo "LD_LIBRARY_PATH=$WORKSPACE\tket-c-api\lib" >> $GITHUB_ENV
-              ;;
-            macOS)
-              echo "tket_c_api_path=$WORKSPACE/tket-c-api" >> $GITHUB_OUTPUT
-              echo "TKET_C_API_PATH=$WORKSPACE/tket-c-api" >> $GITHUB_ENV
-              echo "$WORKSPACE/tket-c-api/lib" >> $GITHUB_PATH
-              echo "DYLD_LIBRARY_PATH=$WORKSPACE/tket-c-api/lib" >> $GITHUB_ENV
-              echo "MACOSX_DEPLOYMENT_TARGET=${{ matrix.platform.macos-compatibility }}" >> $GITHUB_ENV
-              ;;
-            Linux)
-              echo "tket_c_api_path=$WORKSPACE/tket-c-api" >> $GITHUB_OUTPUT
-              echo "TKET_C_API_PATH=$WORKSPACE/tket-c-api" >> $GITHUB_ENV
-              echo "$WORKSPACE/tket-c-api/lib" >> $GITHUB_PATH
-              echo "LD_LIBRARY_PATH=$WORKSPACE/tket-c-api/lib" >> $GITHUB_ENV
-              ;;
-          esac
-
-      - name: Install tket-c-api library from Artifactory
-        shell: bash
-        run: |
-          # Read the version from conanfile.txt
-          TKET_C_API_VERSION=$(grep "tket-c-api/" tket1-passes/conanfile.txt | cut -d'/' -f2 | cut -d'@' -f1)
-          echo "Installing tket-c-api version: $TKET_C_API_VERSION"
-
-          # Install the pre-built tket-c-api package from Artifactory
-          conan install --requires="tket-c-api/${TKET_C_API_VERSION}@tket/stable" \
-            -o "tket-c-api/*:shared=True" \
-            --build=missing \
-            --format=json > conan_install.json
-
-          # Extract the package folder path from the conan output
-          PACKAGE_FOLDER=$(cat conan_install.json | jq -r '.graph.nodes | to_entries[] | select(.value.ref | contains("tket-c-api")) | .value.package_folder')
-          echo "Package folder: $PACKAGE_FOLDER"
-
-          # Copy the library files to the expected location
-          mkdir -p "${{ steps.tket-paths.outputs.tket_c_api_path }}"
-          cp -r "$PACKAGE_FOLDER/"* "${{ steps.tket-paths.outputs.tket_c_api_path }}/"
-
-          echo "tket-c-api installed to ${{ steps.tket-paths.outputs.tket_c_api_path }}"
-
       - uses: mlugg/setup-zig@v2
         if: ${{ matrix.platform.manylinux }}
 
@@ -214,48 +149,6 @@ jobs:
           echo "WITH_ZIG_FLAG: $WITH_ZIG_FLAG"
           echo "COMPATIBILITY_FLAG=$COMPATIBILITY_FLAG" >> "$GITHUB_OUTPUT"
           echo "WITH_ZIG_FLAG=$WITH_ZIG_FLAG" >> "$GITHUB_OUTPUT"
-
-      - name: Check tket-c-api shared library
-        shell: bash
-        run: |
-          echo "tket-c-api files:"
-          find $TKET_C_API_PATH -type f
-          find $TKET_C_API_PATH -type f -name "*.so" | while IFS= read -r sofile; do
-            echo "======= objdump -f $sofile ======="
-            objdump -f "$sofile" || echo "objdump failed for $sofile"
-            echo "======= readelf -h $sofile ======="
-            readelf -h "$sofile" 2>/dev/null | head -20 || echo "readelf failed for $sofile"
-            echo "======= file $sofile ======="
-            file "$sofile" || echo "file failed for $sofile"
-            echo
-          done
-          find $TKET_C_API_PATH -type f -name "*.dylib" | while IFS= read -r dylibfile; do
-            echo "======= otool -L $dylibfile ======="
-            otool -L "$dylibfile" || echo "otool failed for $dylibfile"
-            echo "======= file $dylibfile ======="
-            file "$dylibfile" || echo "file failed for $dylibfile"
-            echo
-          done
-          find $TKET_C_API_PATH -type f -name "*.lib" | while IFS= read -r libfile; do
-            echo "======= Checking Windows library: $libfile ======="
-            echo "======= file $libfile ======="
-            file "$libfile" || echo "file failed for $libfile"
-            echo
-          done
-
-      - name: Copy DLL to package directory (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          # Copy the DLL to the package directory so maturin can include it in the wheel
-          if [ -f "$TKET_C_API_PATH/bin/tket-c-api.dll" ]; then
-            cp "$TKET_C_API_PATH/bin/tket-c-api.dll" "$MODULE_DIR/tket/tket-c-api.dll"
-            echo "Copied DLL to $MODULE_DIR/tket/tket-c-api.dll"
-            ls -lh "$MODULE_DIR/tket/tket-c-api.dll"
-          else
-            echo "ERROR: DLL not found at $TKET_C_API_PATH/bin/tket-c-api.dll"
-            exit 1
-          fi
 
       - name: Build wheels
         shell: bash
@@ -315,9 +208,6 @@ jobs:
         run: |
           echo "Testing the newly built ${{ matrix.platform.target }} wheels..."
           if [ "$TEST_INSTALL" = "true" ]; then
-            # Make sure we only use the tket lib from the wheel itself
-            rm -rf $WORKSPACE\tket-c-api\lib
-            rm -rf $WORKSPACE\tket-c-api\bin
             uv run -f dist --with tket --refresh-package tket --no-project -- python -c "import tket"
           fi
           uvx twine check --strict dist/*
