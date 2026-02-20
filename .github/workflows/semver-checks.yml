@@ -24,29 +24,17 @@ jobs:
     needs: [changes]
     if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
-    env:
-      # Path to the cached tket-c-api library
-      # When this envvar is set, the `./.github/actions/tket-c-api` action **must** be run to fetch the artifacts
-      # This config is not required, but speeds up the build by caching the tket-c-api library
-      # The alternative is to install conan and remove the env var
-      TKET_C_API_PATH: ${{ github.workspace }}/tket-c-api
-      LD_LIBRARY_PATH: ${{ github.workspace }}/tket-c-api/lib
     steps:
       - name: Checkout tket
         uses: actions/checkout@v6
-        # NOTE: here we are using tket-c-api configuration (version and conanfile.txt) from main
-        # to determine the APIs of both main and the PR branch before we look for breaking changes.
-        # This may give incorrect results / CI errors if the PR changes that configuration.
-      - name: Install tket-c-api library
-        uses: ./.github/actions/tket-c-api
+      - name: Install conan
+        uses: conan-io/setup-conan@v1
         with:
-          install-path: ${{ env.TKET_C_API_PATH }}
+          cache_packages: true
       - name: Install LLVM from apt
         run: |
           echo "Installing apt dependencies: llvm-14"
           sudo apt-get install -y llvm-14
       - uses: quantinuum/hugrverse-actions/rs-semver-checks@main
-        env:
-          TKET_C_API_PATH: ${{ env.TKET_C_API_PATH }}
         with:
           token: ${{ secrets.HUGRBOT_PAT }}

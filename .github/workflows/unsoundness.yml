@@ -26,13 +26,6 @@ env:
   LLVM_VERSION: "14.0"
   LLVM_FEATURE_NAME: "14-0"
 
-  # Path to the cached tket-c-api library
-  # When this envvar is set, the `./.github/actions/tket-c-api` action **must** be run to fetch the artifacts
-  # This config is not required, but speeds up the build by caching the tket-c-api library
-  # The alternative is to install conan and remove the env var
-  TKET_C_API_PATH: "${{ github.workspace }}/tket-c-api"
-  LD_LIBRARY_PATH: ${{ github.workspace }}/tket-c-api/lib
-
 jobs:
   miri:
     name: "Miri"
@@ -49,10 +42,10 @@ jobs:
         uses: KyleMayes/install-llvm-action@v2
         with:
           version: ${{ env.LLVM_VERSION }}
-      - name: Install tket-c-api library
-        uses: ./.github/actions/tket-c-api
+      - name: Install conan
+        uses: conan-io/setup-conan@v1
         with:
-          install-path: ${{ env.TKET_C_API_PATH }}
+          cache_packages: true
       - name: Test with Miri
         run: cargo miri test
 

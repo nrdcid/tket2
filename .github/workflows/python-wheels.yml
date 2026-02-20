@@ -16,6 +16,11 @@ on:
     types:
       - published
   workflow_dispatch:
+  # Test trigger
+  # TODO: Remove before merge
+  pull_request:
+    branches:
+      - "**"
 
 permissions:
   contents: read
@@ -127,10 +132,17 @@ jobs:
         with:
           version: ${{ env.LLVM_VERSION }}
 
-        # Set the path to the cached tket-c-api library
-        # When this envvar is set, the `./.github/actions/tket-c-api` action **must** be run to fetch the artifacts
-        # This config is not required, but speeds up the build by caching the tket-c-api library
-        # The alternative is to install conan and remove the env var
+      - name: Install conan
+        uses: conan-io/setup-conan@v1
+        with:
+          cache_packages: true
+
+      - name: Set up conan
+        shell: bash
+        run: |
+          conan profile detect --force
+          conan remote add tket-libs https://quantinuumsw.jfrog.io/artifactory/api/conan/tket1-libs --index 0 || true
+
       - name: Compute tket-c-api paths
         id: tket-paths
         shell: bash
@@ -160,11 +172,29 @@ jobs:
               echo "LD_LIBRARY_PATH=$WORKSPACE/tket-c-api/lib" >> $GITHUB_ENV
               ;;
           esac
-      - name: Install tket-c-api library
-        uses: ./.github/actions/tket-c-api
-        with:
-          install-path: ${{ steps.tket-paths.outputs.tket_c_api_path }}
-          target: ${{ matrix.platform.target }}
+
+      - name: Install tket-c-api library from Artifactory
+        shell: bash
+        run: |
+          # Read the version from conanfile.txt
+          TKET_C_API_VERSION=$(grep "tket-c-api/" tket1-passes/conanfile.txt | cut -d'/' -f2 | cut -d'@' -f1)
+          echo "Installing tket-c-api version: $TKET_C_API_VERSION"
+
+          # Install the pre-built tket-c-api package from Artifactory
+          conan install --requires="tket-c-api/${TKET_C_API_VERSION}@tket/stable" \
+            -o "tket-c-api/*:shared=True" \
+            --build=missing \
+            --format=json > conan_install.json
+
+          # Extract the package folder path from the conan output
+          PACKAGE_FOLDER=$(cat conan_install.json | jq -r '.graph.nodes | to_entries[] | select(.value.ref | contains("tket-c-api")) | .value.package_folder')
+          echo "Package folder: $PACKAGE_FOLDER"
+
+          # Copy the library files to the expected location
+          mkdir -p "${{ steps.tket-paths.outputs.tket_c_api_path }}"
+          cp -r "$PACKAGE_FOLDER/"* "${{ steps.tket-paths.outputs.tket_c_api_path }}/"
+
+          echo "tket-c-api installed to ${{ steps.tket-paths.outputs.tket_c_api_path }}"
 
       - uses: mlugg/setup-zig@v2
         if: ${{ matrix.platform.manylinux }}
