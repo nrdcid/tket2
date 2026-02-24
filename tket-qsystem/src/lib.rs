@@ -23,7 +23,10 @@ use std::collections::HashSet;
 
 use lower_drops::LowerDropsPass;
 use replace_bools::{ReplaceBoolPass, ReplaceBoolPassError};
-use tket::TketOp;
+use tket::{TketOp, Circuit};
+use tket1_passes::{Tket1Pass, Tket1Circuit};
+use tket::serialize::pytket::{EncodeOptions, EncodedCircuit, DecodeOptions};
+use rayon::iter::ParallelIterator;
 
 use extension::{
     futures::FutureOpDef,
@@ -163,6 +166,28 @@ impl QSystemPass {
         if self.force_order {
             self.force_order(hugr)?;
         }
+
+        // Squash single qubit gates after conversion to the Qsystem gate set.
+
+        const SQUASH_PHASEDX_RZ_STR: &str = r#"{"StandardPass": {"name": "SquashRzPhasedX"}, "pass_class": "StandardPass"}"#;
+        
+        let circ = Circuit::new(hugr);
+        let enc_options = EncodeOptions::new().with_subcircuits(true);
+        let mut encoded = EncodedCircuit::new(&circ, enc_options).unwrap();
+         encoded
+        .par_iter_mut()
+        .for_each(|(_region, serial_circuit)| {
+            let mut circuit_ptr = Tket1Circuit::from_serial_circuit(serial_circuit).unwrap();
+            Tket1Pass::run_from_json(SQUASH_PHASEDX_RZ_STR, &mut circuit_ptr).unwrap();
+            *serial_circuit = circuit_ptr.to_serial_circuit().unwrap();
+        });
+
+        DecodeOptions
+
+
+
+        let hugr = encoded.reassemble(region, fn_name, enc_options).unwrap();
+
         // restore the entrypoint
         hugr.set_entrypoint(entrypoint);
         Ok(())
