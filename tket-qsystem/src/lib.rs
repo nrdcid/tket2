@@ -25,8 +25,10 @@ use lower_drops::LowerDropsPass;
 use replace_bools::{ReplaceBoolPass, ReplaceBoolPassError};
 use tket::{TketOp, Circuit};
 use tket1_passes::{Tket1Pass, Tket1Circuit};
-use tket::serialize::pytket::{EncodeOptions, EncodedCircuit, DecodeOptions};
+use tket::serialize::pytket::{ EncodeOptions, EncodedCircuit};
+use pytket::qsystem_decoder_config;
 use rayon::iter::ParallelIterator;
+use std::sync::Arc;
 
 use extension::{
     futures::FutureOpDef,
@@ -168,12 +170,12 @@ impl QSystemPass {
         }
 
         // Squash single qubit gates after conversion to the Qsystem gate set.
-
+        // Call the SquashRzPhasedX pass from pytket using the pass JSON
+        // https://docs.quantinuum.com/tket/api-docs/passes.html#pytket.passes.SquashRzPhasedX
         const SQUASH_PHASEDX_RZ_STR: &str = r#"{"StandardPass": {"name": "SquashRzPhasedX"}, "pass_class": "StandardPass"}"#;
-        
+
         let circ = Circuit::new(hugr);
-        let enc_options = EncodeOptions::new().with_subcircuits(true);
-        let mut encoded = EncodedCircuit::new(&circ, enc_options).unwrap();
+        let mut encoded = EncodedCircuit::new(&circ, EncodeOptions::new().with_subcircuits(true)).unwrap();
          encoded
         .par_iter_mut()
         .for_each(|(_region, serial_circuit)| {
@@ -181,13 +183,9 @@ impl QSystemPass {
             Tket1Pass::run_from_json(SQUASH_PHASEDX_RZ_STR, &mut circuit_ptr).unwrap();
             *serial_circuit = circuit_ptr.to_serial_circuit().unwrap();
         });
+        let hugr = circ.into_hugr();
 
-        DecodeOptions
-
-
-
-        let hugr = encoded.reassemble(region, fn_name, enc_options).unwrap();
-
+        encoded.reassemble_inplace(hugr,  Some(Arc::new(qsystem_decoder_config()))).unwrap();
         // restore the entrypoint
         hugr.set_entrypoint(entrypoint);
         Ok(())
