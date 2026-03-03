@@ -22,13 +22,13 @@ use hugr_core::hugr::internal::HugrMutInternals;
 use std::collections::HashSet;
 
 use lower_drops::LowerDropsPass;
-use replace_bools::{ReplaceBoolPass, ReplaceBoolPassError};
-use tket::{TketOp};
-use tket1_passes::{Tket1Pass, Tket1Circuit};
-use tket::serialize::pytket::{ EncodeOptions, EncodedCircuit};
 use pytket::qsystem_decoder_config;
 use rayon::iter::ParallelIterator;
+use replace_bools::{ReplaceBoolPass, ReplaceBoolPassError};
 use std::sync::Arc;
+use tket::TketOp;
+use tket::serialize::pytket::{EncodeOptions, EncodedCircuit};
+use tket1_passes::{Tket1Circuit, Tket1Pass};
 
 use extension::{
     futures::FutureOpDef,
@@ -174,16 +174,22 @@ impl QSystemPass {
         // Squash single qubit gates after conversion to the Qsystem gate set.
         // Call the SquashRzPhasedX pass from pytket using the pass JSON
         // https://docs.quantinuum.com/tket/api-docs/passes.html#pytket.passes.SquashRzPhasedX
-        let squash_pass = serde_json::to_string(&tket_json_rs::pass::BasePass::StandardPass { pass: tket_json_rs::pass::standard::StandardPass::SquashRzPhasedX }).unwrap();
-        let mut encoded = EncodedCircuit::new(hugr, EncodeOptions::new().with_subcircuits(true)).unwrap();
+        let squash_pass = serde_json::to_string(&tket_json_rs::pass::BasePass::StandardPass {
+            pass: tket_json_rs::pass::standard::StandardPass::SquashRzPhasedX,
+        })
+        .unwrap();
+        let mut encoded =
+            EncodedCircuit::new(hugr, EncodeOptions::new().with_subcircuits(true)).unwrap();
         encoded
-        .par_iter_mut()
-        .for_each(|(_region, serial_circuit)| {
-            let mut circuit_ptr = Tket1Circuit::from_serial_circuit(serial_circuit).unwrap();
-            Tket1Pass::run_from_json(&squash_pass, &mut circuit_ptr).unwrap();
-            *serial_circuit = circuit_ptr.to_serial_circuit().unwrap();
-        });
-        encoded.reassemble_inplace(hugr,  Some(Arc::new(qsystem_decoder_config()))).unwrap();
+            .par_iter_mut()
+            .for_each(|(_region, serial_circuit)| {
+                let mut circuit_ptr = Tket1Circuit::from_serial_circuit(serial_circuit).unwrap();
+                Tket1Pass::run_from_json(&squash_pass, &mut circuit_ptr).unwrap();
+                *serial_circuit = circuit_ptr.to_serial_circuit().unwrap();
+            });
+        encoded
+            .reassemble_inplace(hugr, Some(Arc::new(qsystem_decoder_config())))
+            .unwrap();
         Ok(())
     }
 
