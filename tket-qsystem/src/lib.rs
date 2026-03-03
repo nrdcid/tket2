@@ -19,11 +19,12 @@ use hugr::algorithms::{
 use hugr::hugr::{HugrError, hugrmut::HugrMut};
 use hugr::{Hugr, HugrView, Node, core::Visibility, ops::OpType};
 use hugr_core::hugr::internal::HugrMutInternals;
+use tket_json_rs::circuit_json;
 use std::collections::HashSet;
 
 use lower_drops::LowerDropsPass;
 use replace_bools::{ReplaceBoolPass, ReplaceBoolPassError};
-use tket::{TketOp, Circuit};
+use tket::{TketOp};
 use tket1_passes::{Tket1Pass, Tket1Circuit};
 use tket::serialize::pytket::{ EncodeOptions, EncodedCircuit};
 use pytket::qsystem_decoder_config;
@@ -168,7 +169,6 @@ impl QSystemPass {
         if self.force_order {
             self.force_order(hugr)?;
         }
-
         // restore the entrypoint
         hugr.set_entrypoint(entrypoint);
 
@@ -176,18 +176,14 @@ impl QSystemPass {
         // Call the SquashRzPhasedX pass from pytket using the pass JSON
         // https://docs.quantinuum.com/tket/api-docs/passes.html#pytket.passes.SquashRzPhasedX
         let squash_pass = serde_json::to_string(&tket_json_rs::pass::BasePass::StandardPass { pass: tket_json_rs::pass::standard::StandardPass::SquashRzPhasedX }).unwrap();
-        let circ = Circuit::new(hugr);
-        let mut encoded = EncodedCircuit::new(circ.hugr(), EncodeOptions::new().with_subcircuits(true)).unwrap();
-         encoded
+        let mut encoded = EncodedCircuit::new(hugr, EncodeOptions::new().with_subcircuits(true)).unwrap();
+        encoded
         .par_iter_mut()
         .for_each(|(_region, serial_circuit)| {
             let mut circuit_ptr = Tket1Circuit::from_serial_circuit(serial_circuit).unwrap();
             Tket1Pass::run_from_json(&squash_pass, &mut circuit_ptr).unwrap();
             *serial_circuit = circuit_ptr.to_serial_circuit().unwrap();
-
         });
-        let hugr = circ.into_hugr();
-
         encoded.reassemble_inplace(hugr,  Some(Arc::new(qsystem_decoder_config()))).unwrap();
         Ok(())
     }
@@ -384,7 +380,6 @@ mod test {
             // set the entrypoint to the main function
             // if this is not done the "backwards compatibility" code is triggered
             hugr.set_entrypoint(main_node);
-
         }
         QSystemPass::default().run(&mut hugr).unwrap();
 
