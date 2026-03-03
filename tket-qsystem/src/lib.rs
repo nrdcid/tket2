@@ -169,25 +169,27 @@ impl QSystemPass {
             self.force_order(hugr)?;
         }
 
+        // restore the entrypoint
+        hugr.set_entrypoint(entrypoint);
+
         // Squash single qubit gates after conversion to the Qsystem gate set.
         // Call the SquashRzPhasedX pass from pytket using the pass JSON
         // https://docs.quantinuum.com/tket/api-docs/passes.html#pytket.passes.SquashRzPhasedX
-        const SQUASH_PHASEDX_RZ_STR: &str = r#"{"StandardPass": {"name": "SquashRzPhasedX"}, "pass_class": "StandardPass"}"#;
+        let squas_pass = serde_json::to_string(&tket_json_rs::pass::BasePass::StandardPass { pass: tket_json_rs::pass::standard::StandardPass::SquashRzPhasedX }).unwrap();
 
         let circ = Circuit::new(hugr);
-        let mut encoded = EncodedCircuit::new(&circ, EncodeOptions::new().with_subcircuits(true)).unwrap();
+        let mut encoded = EncodedCircuit::new(circ.hugr(), EncodeOptions::new().with_subcircuits(true)).unwrap();
          encoded
         .par_iter_mut()
         .for_each(|(_region, serial_circuit)| {
             let mut circuit_ptr = Tket1Circuit::from_serial_circuit(serial_circuit).unwrap();
-            Tket1Pass::run_from_json(SQUASH_PHASEDX_RZ_STR, &mut circuit_ptr).unwrap();
+            Tket1Pass::run_from_json(&squas_pass, &mut circuit_ptr).unwrap();
             *serial_circuit = circuit_ptr.to_serial_circuit().unwrap();
+
         });
         let hugr = circ.into_hugr();
 
         encoded.reassemble_inplace(hugr,  Some(Arc::new(qsystem_decoder_config()))).unwrap();
-        // restore the entrypoint
-        hugr.set_entrypoint(entrypoint);
         Ok(())
     }
 
@@ -383,7 +385,10 @@ mod test {
             // set the entrypoint to the main function
             // if this is not done the "backwards compatibility" code is triggered
             hugr.set_entrypoint(main_node);
+
         }
+        //println!("Yo{}", hugr.mermaid_string()); 
+        //assert!(0 == 1);   
         QSystemPass::default().run(&mut hugr).unwrap();
 
         let topo_sorted = Topo::new(&hugr.as_petgraph())
