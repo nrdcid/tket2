@@ -19,7 +19,6 @@ use hugr::algorithms::{
 use hugr::hugr::{HugrError, hugrmut::HugrMut};
 use hugr::{Hugr, HugrView, Node, core::Visibility, ops::OpType};
 use hugr_core::hugr::internal::HugrMutInternals;
-use tket_json_rs::circuit_json;
 use std::collections::HashSet;
 
 use lower_drops::LowerDropsPass;
