@@ -28,7 +28,6 @@ use pyo3::{
 use derive_more::From;
 use hugr::{Hugr, HugrView, Wire};
 use serde::Serialize;
-use tket::circuit::CircuitHash;
 use tket::passes::{CircuitChunks, NormalizeGuppy};
 use tket::serialize::TKETDecode;
 use tket::serialize::pytket::{DecodeOptions, EncodeOptions};
