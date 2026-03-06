@@ -174,7 +174,7 @@ impl QSystemPass {
         // Squash single qubit gates after conversion to the Qsystem gate set.
         // Call the SquashRzPhasedX pass from pytket using the pass JSON
         // https://docs.quantinuum.com/tket/api-docs/passes.html#pytket.passes.SquashRzPhasedX
-        let squash_pass = serde_json::to_string(&tket_json_rs::pass::BasePass::StandardPass {
+        let squash_pass_json = serde_json::to_string(&tket_json_rs::pass::BasePass::StandardPass {
             pass: tket_json_rs::pass::standard::StandardPass::SquashRzPhasedX,
         })
         .unwrap();
@@ -184,7 +184,7 @@ impl QSystemPass {
             .par_iter_mut()
             .for_each(|(_region, serial_circuit)| {
                 let mut circuit_ptr = Tket1Circuit::from_serial_circuit(serial_circuit).unwrap();
-                Tket1Pass::run_from_json(&squash_pass, &mut circuit_ptr).unwrap();
+                Tket1Pass::run_from_json(&squash_pass_json, &mut circuit_ptr).unwrap();
                 *serial_circuit = circuit_ptr.to_serial_circuit().unwrap();
             });
         encoded
