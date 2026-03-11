@@ -31,6 +31,7 @@ from ._tket.passes import (
     tket1_pass,
     normalize_guppy,
     PullForwardError,
+    global_t_resynthesis,
 )
 
 __all__ = [
@@ -48,6 +49,7 @@ __all__ = [
     "PytketHugrPass",
     "PassResult",
     "NormalizeGuppy",
+    "GlobalTResynthesis",
 ]
 
 
@@ -185,6 +187,37 @@ class NormalizeGuppy(ComposablePass):
             remove_dead_funcs=self.remove_dead_funcs,
             inline_dfgs=self.inline_dfgs,
             remove_redundant_order_edges=self.remove_redundant_order_edges,
+        )
+        new_hugr = Hugr.from_str(opt_program.to_str())
+        new_hugr.resolve_extensions(registry)
+        return PassResult.for_pass(self, hugr=new_hugr, inplace=inplace, result=None)
+
+@dataclass
+class GlobalTResynthesis(ComposablePass):
+    ancilla_budget: int = 0
+
+    """Resynthesise a circuit using the global-t optimisation.
+
+    Converts the circuit into a Pauli Graph, runs FastTODD with a given ancilla budget,
+    and uses GreedyPauliSimp to synthesize the pauli graph.
+
+    Parameters:
+    - ancilla_budget: The number of ancilla qubits to use.
+    """
+
+    def run(self, hugr: Hugr, *, inplace: bool = True) -> PassResult:
+        return implement_pass_run(
+            self,
+            hugr=hugr,
+            inplace=inplace,
+            copy_call=lambda h: self._global_t_resynthesis(h, inplace),
+        )
+
+    def _global_t_resynthesis(self, hugr: Hugr, inplace: bool) -> PassResult:
+        compiler_state, registry = _hugr_to_tk2circuit(hugr)
+        opt_program = global_t_resynthesis(
+            compiler_state,
+            ancilla_budget=self.ancilla_budget,
         )
         new_hugr = Hugr.from_str(opt_program.to_str())
         new_hugr.resolve_extensions(registry)

@@ -105,3 +105,13 @@ def tket1_pass(
       circuit-like regions, and optimise them too.
       nested inside other subregions of the circuit.
     """
+
+def global_t_resynthesis(
+    circ: CircuitClass,
+    ancilla_budget: int = 0,
+) -> CircuitClass:
+    """Applies FastTODD and GreedyPauliSimp to a circuit.
+
+    Parameters:
+    - ancilla_budget: number of ancillas available to increase size of phase_polynomial for FastTODD.
+    """

@@ -52,7 +52,6 @@ pub mod modifier;
 pub(crate) mod ops;
 pub mod optimiser;
 pub mod passes;
-pub mod pauli_graph;
 pub mod resource;
 pub mod rewrite;
 pub mod serialize;
