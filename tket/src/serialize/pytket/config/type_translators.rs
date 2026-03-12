@@ -14,7 +14,7 @@ use hugr::types::{Type, TypeEnum};
 use hugr::{Hugr, Wire};
 use itertools::Itertools;
 
-use crate::extension::bool::BoolOp;
+use crate::extension::bool::OpaqueBoolOp;
 use crate::extension::rotation;
 use crate::serialize::pytket::extension::{PytketTypeTranslator, RegisterCount};
 use crate::serialize::pytket::{PytketDecodeError, PytketDecodeErrorInner};
@@ -161,7 +161,7 @@ impl TypeTranslatorSet {
 
         // For now, we just hard-code this to the two kind of bits we support.
         let native_bool = bool_t();
-        let tket_bool = crate::extension::bool::bool_type();
+        let tket_bool = crate::extension::bool::opaque_bool_type();
         if (typ1 == &native_bool && typ2 == &tket_bool)
             || (typ1 == &tket_bool && typ2 == &native_bool)
         {
@@ -195,17 +195,17 @@ impl TypeTranslatorSet {
 
         // Hard-coded transformations until customs calls are added to [`PytketTypeTranslator`].
         let native_bool = bool_t();
-        let tket_bool = crate::extension::bool::bool_type();
+        let tket_bool = crate::extension::bool::opaque_bool_type();
         if initial_type == &native_bool && target_type == &tket_bool {
             let [wire] = builder
-                .add_dataflow_op(BoolOp::make_opaque, [wire])
+                .add_dataflow_op(OpaqueBoolOp::make_opaque, [wire])
                 .map_err(map_build_error)?
                 .outputs_arr();
             return Ok(wire);
         }
         if initial_type == &tket_bool && target_type == &native_bool {
             let [wire] = builder
-                .add_dataflow_op(BoolOp::read, [wire])
+                .add_dataflow_op(OpaqueBoolOp::read, [wire])
                 .map_err(map_build_error)?
                 .outputs_arr();
             return Ok(wire);
@@ -226,7 +226,7 @@ mod tests {
     use hugr::extension::prelude::{PRELUDE_ID, qb_t};
     use hugr::types::SumType;
 
-    use crate::extension::bool::BOOL_EXTENSION_ID;
+    use crate::extension::bool::OPAQUE_BOOL_EXTENSION_ID;
 
     use super::*;
 
@@ -234,7 +234,7 @@ mod tests {
 
     impl PytketTypeTranslator for TestBoolTranslator {
         fn extensions(&self) -> Vec<ExtensionId> {
-            vec![BOOL_EXTENSION_ID, PRELUDE_ID]
+            vec![OPAQUE_BOOL_EXTENSION_ID, PRELUDE_ID]
         }
 
         fn type_to_pytket(

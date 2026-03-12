@@ -20,21 +20,21 @@ use smol_str::SmolStr;
 use strum::{EnumIter, EnumString, IntoStaticStr};
 
 /// The ID of the `tket.bool` extension.
-pub const BOOL_EXTENSION_ID: ExtensionId = ExtensionId::new_unchecked("tket.bool");
+pub const OPAQUE_BOOL_EXTENSION_ID: ExtensionId = ExtensionId::new_unchecked("tket.bool");
 /// The "tket.bool" extension version
-pub const BOOL_EXTENSION_VERSION: Version = Version::new(0, 2, 0);
+pub const OPAQUE_BOOL_EXTENSION_VERSION: Version = Version::new(0, 2, 0);
 
 lazy_static! {
     /// The "tket.bool" extension.
-    pub static ref BOOL_EXTENSION: Arc<Extension>  = {
-        Extension::new_arc(BOOL_EXTENSION_ID, BOOL_EXTENSION_VERSION, |ext, ext_ref| {
+    pub static ref OPAQUE_BOOL_EXTENSION: Arc<Extension>  = {
+        Extension::new_arc(OPAQUE_BOOL_EXTENSION_ID, OPAQUE_BOOL_EXTENSION_VERSION, |ext, ext_ref| {
             let _ = add_bool_type_def(ext, ext_ref.clone()).unwrap();
-            BoolOp::load_all_ops(ext, ext_ref).unwrap();
+            OpaqueBoolOp::load_all_ops(ext, ext_ref).unwrap();
         })
     };
 
     /// The name of the `bool` type.
-    pub static ref BOOL_TYPE_NAME: SmolStr = SmolStr::new_inline("bool");
+    pub static ref OPAQUE_BOOL_TYPE_NAME: SmolStr = SmolStr::new_inline("bool");
 }
 
 fn add_bool_type_def(
@@ -42,7 +42,7 @@ fn add_bool_type_def(
     extension_ref: Weak<Extension>,
 ) -> Result<&TypeDef, ExtensionBuildError> {
     ext.add_type(
-        BOOL_TYPE_NAME.to_owned(),
+        OPAQUE_BOOL_TYPE_NAME.to_owned(),
         vec![],
         "An opaque bool type".into(),
         TypeBound::Copyable.into(),
@@ -51,26 +51,26 @@ fn add_bool_type_def(
 }
 
 /// Returns a `tket.bool` [CustomType].
-pub fn bool_custom_type(extension_ref: &Weak<Extension>) -> CustomType {
+pub fn opaque_bool_custom_type(extension_ref: &Weak<Extension>) -> CustomType {
     CustomType::new(
-        BOOL_TYPE_NAME.to_owned(),
+        OPAQUE_BOOL_TYPE_NAME.to_owned(),
         vec![],
-        BOOL_EXTENSION_ID,
+        OPAQUE_BOOL_EXTENSION_ID,
         TypeBound::Copyable,
         extension_ref,
     )
 }
 
 /// Returns a `bool` [Type].
-pub fn bool_type() -> Type {
-    bool_custom_type(&Arc::downgrade(&BOOL_EXTENSION)).into()
+pub fn opaque_bool_type() -> Type {
+    opaque_bool_custom_type(&Arc::downgrade(&OPAQUE_BOOL_EXTENSION)).into()
 }
 
 #[derive(Debug, Clone, PartialEq, Hash, serde::Serialize, serde::Deserialize)]
 /// Structure for holding constant `tket.bool` values.
-pub struct ConstBool(bool);
+pub struct ConstOpaqueBool(bool);
 
-impl ConstBool {
+impl ConstOpaqueBool {
     /// Creates a new [`ConstBool`].
     pub fn new(value: bool) -> Self {
         Self(value)
@@ -83,7 +83,7 @@ impl ConstBool {
 }
 
 #[typetag::serde]
-impl CustomConst for ConstBool {
+impl CustomConst for ConstOpaqueBool {
     fn name(&self) -> ValueName {
         format!("ConstBool({})", self.0).into()
     }
@@ -93,7 +93,7 @@ impl CustomConst for ConstBool {
     }
 
     fn get_type(&self) -> Type {
-        bool_type()
+        opaque_bool_type()
     }
 }
 
@@ -115,7 +115,7 @@ impl CustomConst for ConstBool {
 #[expect(non_camel_case_types)]
 #[non_exhaustive]
 /// Simple enum of "tket.bool" operations.
-pub enum BoolOp {
+pub enum OpaqueBoolOp {
     /// Gets a Hugr bool_t value from the opaque type.
     read,
     /// Converts a Hugr bool_t value into the opaque type.
@@ -132,19 +132,19 @@ pub enum BoolOp {
     xor,
 }
 
-impl MakeOpDef for BoolOp {
+impl MakeOpDef for OpaqueBoolOp {
     fn opdef_id(&self) -> hugr::ops::OpName {
         <&'static str>::from(self).into()
     }
 
     fn init_signature(&self, extension_ref: &Weak<Extension>) -> SignatureFunc {
-        let bool_type = Type::new_extension(bool_custom_type(extension_ref));
+        let bool_type = Type::new_extension(opaque_bool_custom_type(extension_ref));
         let sum_type = Type::new_unit_sum(2);
         match self {
-            BoolOp::read => Signature::new(bool_type, sum_type).into(),
-            BoolOp::make_opaque => Signature::new(sum_type, bool_type).into(),
-            BoolOp::not => Signature::new(bool_type.clone(), bool_type.clone()).into(),
-            BoolOp::eq | BoolOp::and | BoolOp::or | BoolOp::xor => Signature::new(
+            OpaqueBoolOp::read => Signature::new(bool_type, sum_type).into(),
+            OpaqueBoolOp::make_opaque => Signature::new(sum_type, bool_type).into(),
+            OpaqueBoolOp::not => Signature::new(bool_type.clone(), bool_type.clone()).into(),
+            OpaqueBoolOp::eq | OpaqueBoolOp::and | OpaqueBoolOp::or | OpaqueBoolOp::xor => Signature::new(
                 vec![bool_type.clone(), bool_type.clone()],
                 bool_type.clone(),
             )
@@ -159,89 +159,89 @@ impl MakeOpDef for BoolOp {
     }
 
     fn extension(&self) -> ExtensionId {
-        BOOL_EXTENSION_ID
+        OPAQUE_BOOL_EXTENSION_ID
     }
 
     fn description(&self) -> String {
         match self {
-            BoolOp::read => "Convert a tket.bool into a Hugr bool_t (a unit sum).".into(),
-            BoolOp::make_opaque => "Convert a Hugr bool_t (a unit sum) into an tket.bool.".into(),
-            BoolOp::eq => "Equality between two tket.bools.".into(),
-            BoolOp::not => "Negation of a tket.bool.".into(),
-            BoolOp::and => "Logical AND between two tket.bools.".into(),
-            BoolOp::or => "Logical OR between two tket.bools.".into(),
-            BoolOp::xor => "Logical XOR between two tket.bools.".into(),
+            OpaqueBoolOp::read => "Convert a tket.bool into a Hugr bool_t (a unit sum).".into(),
+            OpaqueBoolOp::make_opaque => "Convert a Hugr bool_t (a unit sum) into an tket.bool.".into(),
+            OpaqueBoolOp::eq => "Equality between two tket.bools.".into(),
+            OpaqueBoolOp::not => "Negation of a tket.bool.".into(),
+            OpaqueBoolOp::and => "Logical AND between two tket.bools.".into(),
+            OpaqueBoolOp::or => "Logical OR between two tket.bools.".into(),
+            OpaqueBoolOp::xor => "Logical XOR between two tket.bools.".into(),
         }
     }
 
     fn extension_ref(&self) -> Weak<Extension> {
-        Arc::downgrade(&BOOL_EXTENSION)
+        Arc::downgrade(&OPAQUE_BOOL_EXTENSION)
     }
 }
 
-impl MakeRegisteredOp for BoolOp {
+impl MakeRegisteredOp for OpaqueBoolOp {
     fn extension_id(&self) -> ExtensionId {
-        BOOL_EXTENSION_ID
+        OPAQUE_BOOL_EXTENSION_ID
     }
 
     fn extension_ref(&self) -> Arc<Extension> {
-        BOOL_EXTENSION.clone()
+        OPAQUE_BOOL_EXTENSION.clone()
     }
 }
 /// An extension trait for [Dataflow] providing methods to add "tket.bool"
 /// operations.
-pub trait BoolOpBuilder: Dataflow {
+pub trait OpaqueBoolOpBuilder: Dataflow {
     /// Add a "tket.bool.read" op.
     fn add_bool_read(&mut self, bool_input: Wire) -> Result<[Wire; 1], BuildError> {
         Ok(self
-            .add_dataflow_op(BoolOp::read, [bool_input])?
+            .add_dataflow_op(OpaqueBoolOp::read, [bool_input])?
             .outputs_arr())
     }
 
     /// Add a "tket.bool.make_opaque" op.
     fn add_bool_make_opaque(&mut self, sum_input: Wire) -> Result<[Wire; 1], BuildError> {
         Ok(self
-            .add_dataflow_op(BoolOp::make_opaque, [sum_input])?
+            .add_dataflow_op(OpaqueBoolOp::make_opaque, [sum_input])?
             .outputs_arr())
     }
 
     /// Add a "tket.bool.Eq" op.
     fn add_eq(&mut self, bool1: Wire, bool2: Wire) -> Result<[Wire; 1], BuildError> {
         Ok(self
-            .add_dataflow_op(BoolOp::eq, [bool1, bool2])?
+            .add_dataflow_op(OpaqueBoolOp::eq, [bool1, bool2])?
             .outputs_arr())
     }
 
     /// Add a "tket.bool.Not" op.
     fn add_not(&mut self, bool_input: Wire) -> Result<[Wire; 1], BuildError> {
         Ok(self
-            .add_dataflow_op(BoolOp::not, [bool_input])?
+            .add_dataflow_op(OpaqueBoolOp::not, [bool_input])?
             .outputs_arr())
     }
 
     /// Add a "tket.bool.And" op.
     fn add_and(&mut self, bool1: Wire, bool2: Wire) -> Result<[Wire; 1], BuildError> {
         Ok(self
-            .add_dataflow_op(BoolOp::and, [bool1, bool2])?
+            .add_dataflow_op(OpaqueBoolOp::and, [bool1, bool2])?
             .outputs_arr())
     }
 
     /// Add a "tket.bool.Or" op.
     fn add_or(&mut self, bool1: Wire, bool2: Wire) -> Result<[Wire; 1], BuildError> {
         Ok(self
-            .add_dataflow_op(BoolOp::or, [bool1, bool2])?
+            .add_dataflow_op(OpaqueBoolOp::or, [bool1, bool2])?
             .outputs_arr())
     }
 
     /// Add a "tket.bool.Xor" op.
     fn add_xor(&mut self, bool1: Wire, bool2: Wire) -> Result<[Wire; 1], BuildError> {
         Ok(self
-            .add_dataflow_op(BoolOp::xor, [bool1, bool2])?
+            .add_dataflow_op(OpaqueBoolOp::xor, [bool1, bool2])?
             .outputs_arr())
     }
 }
 
-impl<D: Dataflow> BoolOpBuilder for D {}
+impl<D: Dataflow> OpaqueBoolOpBuilder for D {}
 
 #[cfg(test)]
 pub(crate) mod test {
@@ -253,29 +253,29 @@ pub(crate) mod test {
     };
     use strum::IntoEnumIterator;
 
-    fn get_opdef(op: BoolOp) -> Option<&'static Arc<OpDef>> {
-        BOOL_EXTENSION.get_op(&op.op_id())
+    fn get_opdef(op: OpaqueBoolOp) -> Option<&'static Arc<OpDef>> {
+        OPAQUE_BOOL_EXTENSION.get_op(&op.op_id())
     }
 
     #[test]
     fn create_extension() {
-        assert_eq!(BOOL_EXTENSION.name(), &BOOL_EXTENSION_ID);
+        assert_eq!(OPAQUE_BOOL_EXTENSION.name(), &OPAQUE_BOOL_EXTENSION_ID);
 
-        for o in BoolOp::iter() {
-            assert_eq!(BoolOp::from_def(get_opdef(o).unwrap()), Ok(o));
+        for o in OpaqueBoolOp::iter() {
+            assert_eq!(OpaqueBoolOp::from_def(get_opdef(o).unwrap()), Ok(o));
         }
     }
 
     #[test]
     fn test_bool_type() {
-        let bool_custom_type = BOOL_EXTENSION
-            .get_type(&BOOL_TYPE_NAME)
+        let bool_custom_type = OPAQUE_BOOL_EXTENSION
+            .get_type(&OPAQUE_BOOL_TYPE_NAME)
             .unwrap()
             .instantiate([])
             .unwrap();
         let bool_ty = Type::new_extension(bool_custom_type);
-        assert_eq!(bool_ty, bool_type());
-        let bool_const = ConstBool::new(true);
+        assert_eq!(bool_ty, opaque_bool_type());
+        let bool_const = ConstOpaqueBool::new(true);
         assert_eq!(bool_const.get_type(), bool_ty);
         assert!(bool_const.value());
         assert!(bool_const.validate().is_ok());
@@ -283,7 +283,7 @@ pub(crate) mod test {
 
     #[test]
     fn test_read() {
-        let bool_type = bool_type();
+        let bool_type = opaque_bool_type();
         let sum_type = Type::new_unit_sum(2);
 
         let hugr = {
@@ -297,7 +297,7 @@ pub(crate) mod test {
 
     #[test]
     fn test_make_opaque() {
-        let bool_type = bool_type();
+        let bool_type = opaque_bool_type();
         let sum_type = Type::new_unit_sum(2);
 
         let hugr = {

@@ -290,7 +290,7 @@ mod test {
     use petgraph::visit::{Topo, Walker as _};
     use rstest::rstest;
     use tket::extension::{
-        bool::bool_type,
+        bool::opaque_bool_type,
         guppy::{DROP_OP_NAME, GUPPY_EXTENSION},
     };
 
@@ -314,7 +314,7 @@ mod test {
             let mut builder = mb
                 .define_function(
                     "main",
-                    Signature::new(qb_t(), vec![bool_type(), bool_type()]),
+                    Signature::new(qb_t(), vec![opaque_bool_type(), opaque_bool_type()]),
                 )
                 .unwrap();
             let [qb] = builder.input_wires_arr();
@@ -383,10 +383,10 @@ mod test {
     #[test]
     fn hide_funcs() {
         let orig = {
-            let arr_t = || array_type(4, bool_type());
+            let arr_t = || array_type(4, opaque_bool_type());
             let mut dfb = FunctionBuilder::new("main", Signature::new_endo(arr_t())).unwrap();
             let [arr] = dfb.input_wires_arr();
-            let (arr1, arr2) = dfb.add_array_clone(bool_type(), 4, arr).unwrap();
+            let (arr1, arr2) = dfb.add_array_clone(opaque_bool_type(), 4, arr).unwrap();
             let dop = GUPPY_EXTENSION.get_op(&DROP_OP_NAME).unwrap();
             dfb.add_dataflow_op(
                 ExtensionOp::new(dop.clone(), [arr_t().into()]).unwrap(),

@@ -1,6 +1,6 @@
 use std::sync::{Arc, Weak};
 
-use crate::extension::bool::bool_type;
+use crate::extension::bool::opaque_bool_type;
 use crate::extension::rotation::rotation_type;
 use crate::extension::sympy::SympyOpDef;
 use crate::extension::{TKET_EXTENSION, TKET_EXTENSION_ID as EXTENSION_ID};
@@ -277,7 +277,7 @@ impl MakeOpDef for TketOp {
             CX | CZ | CY => Signature::new_endo(vec![qb_t(); 2]),
             Toffoli => Signature::new_endo(vec![qb_t(); 3]),
             Measure => Signature::new(qb_t(), vec![qb_t(), bool_t()]),
-            MeasureFree => Signature::new(qb_t(), bool_type()),
+            MeasureFree => Signature::new(qb_t(), opaque_bool_type()),
             Rz | Rx | Ry => Signature::new(vec![qb_t(), rotation_type()], qb_t()),
             CRz => Signature::new(vec![qb_t(), qb_t(), rotation_type()], vec![qb_t(); 2]),
             QAlloc => Signature::new(type_row![], qb_t()),
@@ -367,7 +367,7 @@ pub(crate) mod test {
     use super::TketOp;
     use crate::Pauli;
     use crate::circuit::Circuit;
-    use crate::extension::bool::bool_type;
+    use crate::extension::bool::opaque_bool_type;
     use crate::extension::{TKET_EXTENSION as EXTENSION, TKET_EXTENSION_ID as EXTENSION_ID};
     use crate::utils::build_simple_circuit;
     fn get_opdef(op: TketOp) -> Option<&'static Arc<OpDef>> {
@@ -422,7 +422,7 @@ pub(crate) mod test {
 
     #[test]
     fn try_qalloc_measure_free() {
-        let mut b = DFGBuilder::new(Signature::new(type_row![], bool_type())).unwrap();
+        let mut b = DFGBuilder::new(Signature::new(type_row![], opaque_bool_type())).unwrap();
 
         let try_q = b
             .add_dataflow_op(TketOp::TryQAlloc, [])

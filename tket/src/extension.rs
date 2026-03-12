@@ -59,7 +59,7 @@ pub(crate) static ref REGISTRY: ExtensionRegistry = ExtensionRegistry::new(
     STD_REG.iter().map(|e| e.to_owned()).chain([
     TKET1_EXTENSION.to_owned(),
     TKET_EXTENSION.to_owned(),
-    bool::BOOL_EXTENSION.to_owned(),
+    bool::OPAQUE_BOOL_EXTENSION.to_owned(),
     debug::DEBUG_EXTENSION.to_owned(),
     guppy::GUPPY_EXTENSION.to_owned(),
     rotation::ROTATION_EXTENSION.to_owned()

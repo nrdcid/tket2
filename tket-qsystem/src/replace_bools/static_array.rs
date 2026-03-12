@@ -26,7 +26,7 @@ use hugr::{
     types::{Transformable as _, Type, TypeEnum, TypeRow},
 };
 use itertools::Itertools as _;
-use tket::extension::bool::{self, BOOL_TYPE_NAME, BoolOpBuilder as _, ConstBool, bool_type};
+use tket::extension::bool::{self, OPAQUE_BOOL_TYPE_NAME, OpaqueBoolOpBuilder as _, ConstOpaqueBool, opaque_bool_type};
 
 #[non_exhaustive]
 #[derive(Debug, derive_more::Error, derive_more::Display, derive_more::From)]
@@ -72,11 +72,11 @@ fn inner_replace_types() -> ReplaceTypes {
         };
         replace_const_static_array(sav, rt)
     });
-    inner.set_replace_type(bool_type().as_extension().unwrap().clone(), bool_t());
+    inner.set_replace_type(opaque_bool_type().as_extension().unwrap().clone(), bool_t());
     inner.replace_consts(
-        bool_type().as_extension().unwrap().clone(),
+        opaque_bool_type().as_extension().unwrap().clone(),
         |const_bool, _| {
-            let cb: &ConstBool = const_bool.value().downcast_ref::<ConstBool>().unwrap();
+            let cb: &ConstOpaqueBool = const_bool.value().downcast_ref::<ConstOpaqueBool>().unwrap();
             Ok(Value::from_bool(cb.value()))
         },
     );
@@ -207,7 +207,7 @@ fn build_new_to_old(
             {
                 Ok(val)
             } else if (custom_ty.extension(), custom_ty.name())
-                == (&bool::BOOL_EXTENSION_ID, &BOOL_TYPE_NAME)
+                == (&bool::OPAQUE_BOOL_EXTENSION_ID, &OPAQUE_BOOL_TYPE_NAME)
             {
                 let [val] = builder.add_bool_make_opaque(val)?;
                 Ok(val)
@@ -321,20 +321,20 @@ mod test {
     use super::*;
 
     fn static_array_tket_bool() -> StaticArrayValue {
-        StaticArrayValue::try_new("arr", bool_type(), [ConstBool::new(true).into()]).unwrap()
+        StaticArrayValue::try_new("arr", opaque_bool_type(), [ConstOpaqueBool::new(true).into()]).unwrap()
     }
 
     fn static_array_static_array_tket_bool() -> StaticArrayValue {
         StaticArrayValue::try_new(
             "arr",
-            static_array_type(bool_type()),
+            static_array_type(opaque_bool_type()),
             [static_array_tket_bool().into()],
         )
         .unwrap()
     }
 
     fn static_array_sum() -> StaticArrayValue {
-        let sum_ty = SumType::new(vec![vec![], vec![bool_type()], vec![bool_t()]]);
+        let sum_ty = SumType::new(vec![vec![], vec![opaque_bool_type()], vec![bool_t()]]);
         StaticArrayValue::try_new(
             "arr",
             sum_ty.clone().into(),

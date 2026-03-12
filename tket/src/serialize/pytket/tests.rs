@@ -16,7 +16,7 @@ use std::sync::Arc;
 use super::TKETDecode;
 use crate::TketOp;
 use crate::extension::TKET1_EXTENSION_ID;
-use crate::extension::bool::{BoolOp, bool_type};
+use crate::extension::bool::{OpaqueBoolOp, opaque_bool_type};
 use crate::extension::rotation::{ConstRotation, RotationOp, rotation_type};
 use crate::extension::sympy::SympyOpDef;
 use crate::metadata;
@@ -594,7 +594,7 @@ fn circ_nested_dfgs() -> Hugr {
             .unwrap()
             .outputs_arr();
         let [bool] = inner_dfg
-            .add_dataflow_op(BoolOp::read, [bool])
+            .add_dataflow_op(OpaqueBoolOp::read, [bool])
             .unwrap()
             .outputs_arr();
 
@@ -673,18 +673,18 @@ fn circ_order_edge() -> Hugr {
 // Bool types get converted automatically between native and tket representations.
 #[fixture]
 fn circ_bool_conversion() -> Hugr {
-    let input_t = vec![bool_t(), bool_type()];
-    let output_t = vec![bool_t(), bool_type()];
+    let input_t = vec![bool_t(), opaque_bool_type()];
+    let output_t = vec![bool_t(), opaque_bool_type()];
     let mut h = FunctionBuilder::new("bool_conversion", Signature::new(input_t, output_t)).unwrap();
 
     let [native_b0, tket_b1] = h.input_wires_arr();
 
     let [tket_b0] = h
-        .add_dataflow_op(BoolOp::make_opaque, [native_b0])
+        .add_dataflow_op(OpaqueBoolOp::make_opaque, [native_b0])
         .unwrap()
         .outputs_arr();
     let [native_b1] = h
-        .add_dataflow_op(BoolOp::read, [tket_b1])
+        .add_dataflow_op(OpaqueBoolOp::read, [tket_b1])
         .unwrap()
         .outputs_arr();
 

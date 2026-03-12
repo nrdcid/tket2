@@ -27,7 +27,7 @@ use hugr::{Hugr, Node, Wire, hugr::hugrmut::HugrMut, type_row};
 use static_array::{ReplaceStaticArrayBoolPass, ReplaceStaticArrayBoolPassError};
 use tket::TketOp;
 use tket::extension::{
-    bool::{BoolOp, ConstBool, bool_type},
+    bool::{OpaqueBoolOp, ConstOpaqueBool, opaque_bool_type},
     guppy::{DROP_OP_NAME, GUPPY_EXTENSION},
 };
 
@@ -129,23 +129,23 @@ fn make_opaque_op_dest() -> NodeTemplate {
     NodeTemplate::CompoundOp(Box::new(h))
 }
 
-fn binary_logic_op_dest(op: &BoolOp) -> NodeTemplate {
+fn binary_logic_op_dest(op: &OpaqueBoolOp) -> NodeTemplate {
     let mut dfb =
         DFGBuilder::new(inout_sig(vec![bool_dest(), bool_dest()], vec![bool_dest()])).unwrap();
     let [sum_wire1, sum_wire2] = dfb.input_wires_arr();
     let cond1 = read_builder(&mut dfb, sum_wire1);
     let cond2 = read_builder(&mut dfb, sum_wire2);
     let result = match op {
-        BoolOp::eq => dfb
+        OpaqueBoolOp::eq => dfb
             .add_dataflow_op(LogicOp::Eq, [cond1.out_wire(0), cond2.out_wire(0)])
             .unwrap(),
-        BoolOp::and => dfb
+        OpaqueBoolOp::and => dfb
             .add_dataflow_op(LogicOp::And, [cond1.out_wire(0), cond2.out_wire(0)])
             .unwrap(),
-        BoolOp::or => dfb
+        OpaqueBoolOp::or => dfb
             .add_dataflow_op(LogicOp::Or, [cond1.out_wire(0), cond2.out_wire(0)])
             .unwrap(),
-        BoolOp::xor => dfb
+        OpaqueBoolOp::xor => dfb
             .add_dataflow_op(LogicOp::Xor, [cond1.out_wire(0), cond2.out_wire(0)])
             .unwrap(),
         op => panic!("Unknown op name: {op:?}"),
@@ -291,7 +291,7 @@ fn lowerer() -> ReplaceTypes {
     let mut lw = ReplaceTypes::default();
 
     // Replace tket.bool type.
-    lw.set_replace_type(bool_type().as_extension().unwrap().clone(), bool_dest());
+    lw.set_replace_type(opaque_bool_type().as_extension().unwrap().clone(), bool_dest());
     let dup_op = FutureOp {
         op: FutureOpDef::Dup,
         typ: bool_t(),
@@ -314,14 +314,14 @@ fn lowerer() -> ReplaceTypes {
 
     // Replace tket.bool constants.
     lw.replace_consts(
-        bool_type().as_extension().unwrap().clone(),
+        opaque_bool_type().as_extension().unwrap().clone(),
         |const_bool, _| {
             Ok(Value::sum(
                 0,
                 [Value::from_bool(
                     const_bool
                         .value()
-                        .downcast_ref::<ConstBool>()
+                        .downcast_ref::<ConstOpaqueBool>()
                         .unwrap()
                         .value(),
                 )],
@@ -332,14 +332,14 @@ fn lowerer() -> ReplaceTypes {
     );
 
     // Replace all tket.bool ops.
-    let read_op = BoolOp::read.to_extension_op().unwrap();
+    let read_op = OpaqueBoolOp::read.to_extension_op().unwrap();
     lw.set_replace_op(&read_op, read_op_dest());
-    let make_opaque_op = BoolOp::make_opaque.to_extension_op().unwrap();
+    let make_opaque_op = OpaqueBoolOp::make_opaque.to_extension_op().unwrap();
     lw.set_replace_op(&make_opaque_op, make_opaque_op_dest());
-    for op in [BoolOp::eq, BoolOp::and, BoolOp::or, BoolOp::xor] {
+    for op in [OpaqueBoolOp::eq, OpaqueBoolOp::and, OpaqueBoolOp::or, OpaqueBoolOp::xor] {
         lw.set_replace_op(&op.to_extension_op().unwrap(), binary_logic_op_dest(&op));
     }
-    let not_op = BoolOp::not.to_extension_op().unwrap();
+    let not_op = OpaqueBoolOp::not.to_extension_op().unwrap();
     lw.set_replace_op(&not_op, not_op_dest());
 
     // Replace measure ops with lazy versions.
@@ -442,17 +442,17 @@ mod test {
     use rstest::rstest;
     use tket::{
         TketOp,
-        extension::bool::{BoolOp, BoolOpBuilder},
+        extension::bool::{OpaqueBoolOp, OpaqueBoolOpBuilder},
     };
 
     fn tket_bool_t() -> Type {
-        bool_type()
+        opaque_bool_type()
     }
 
     #[test]
     fn test_consts() {
         let mut dfb = DFGBuilder::new(inout_sig(vec![], vec![tket_bool_t()])).unwrap();
-        let const_wire = dfb.add_load_value(ConstBool::new(true));
+        let const_wire = dfb.add_load_value(ConstOpaqueBool::new(true));
         let mut h = dfb.finish_hugr_with_outputs([const_wire]).unwrap();
 
         h.validate().unwrap();
@@ -504,11 +504,11 @@ mod test {
     }
 
     #[rstest]
-    #[case(BoolOp::eq)]
-    #[case(BoolOp::and)]
-    #[case(BoolOp::or)]
-    #[case(BoolOp::xor)]
-    fn test_logic(#[case] logic_op: BoolOp) {
+    #[case(OpaqueBoolOp::eq)]
+    #[case(OpaqueBoolOp::and)]
+    #[case(OpaqueBoolOp::or)]
+    #[case(OpaqueBoolOp::xor)]
+    fn test_logic(#[case] logic_op: OpaqueBoolOp) {
         let mut dfb = DFGBuilder::new(inout_sig(
             vec![tket_bool_t(), tket_bool_t()],
             vec![tket_bool_t()],
@@ -531,7 +531,7 @@ mod test {
     fn test_not() {
         let mut dfb = DFGBuilder::new(inout_sig(vec![tket_bool_t()], vec![tket_bool_t()])).unwrap();
         let [b] = dfb.input_wires_arr();
-        let result = dfb.add_dataflow_op(BoolOp::not, [b]).unwrap();
+        let result = dfb.add_dataflow_op(OpaqueBoolOp::not, [b]).unwrap();
         let mut h = dfb.finish_hugr_with_outputs(result.outputs()).unwrap();
 
         let pass = ReplaceBoolPass;
@@ -547,7 +547,7 @@ mod test {
     #[case(TketOp::MeasureFree)]
     #[case(QSystemOp::Measure)]
     fn test_measure<T: Into<OpType>>(#[case] measure_op: T) {
-        let mut dfb = DFGBuilder::new(inout_sig(vec![qb_t()], vec![bool_type()])).unwrap();
+        let mut dfb = DFGBuilder::new(inout_sig(vec![qb_t()], vec![opaque_bool_type()])).unwrap();
         let [q] = dfb.input_wires_arr();
         let output = dfb.add_dataflow_op(measure_op, [q]).unwrap();
         let mut h = dfb.finish_hugr_with_outputs(output.outputs()).unwrap();
@@ -572,7 +572,7 @@ mod test {
 
     #[test]
     fn test_measure_reset() {
-        let mut dfb = DFGBuilder::new(inout_sig(vec![qb_t()], vec![qb_t(), bool_type()])).unwrap();
+        let mut dfb = DFGBuilder::new(inout_sig(vec![qb_t()], vec![qb_t(), opaque_bool_type()])).unwrap();
         let [q] = dfb.input_wires_arr();
         let output = dfb.add_measure_reset(q).unwrap();
         let mut h = dfb.finish_hugr_with_outputs(output).unwrap();
@@ -589,7 +589,7 @@ mod test {
     #[case(Array)]
     #[case(BorrowArray)]
     fn test_array_clone_bool<AK: ArrayKind>(#[case] _ak: AK) {
-        let elem_ty = bool_type();
+        let elem_ty = opaque_bool_type();
         let size = 4;
         let arr_ty = AK::ty(size, elem_ty.clone());
         let mut dfb = DFGBuilder::new(inout_sig(
@@ -622,7 +622,7 @@ mod test {
     #[case(Array)]
     #[case(BorrowArray)]
     fn test_array_discard_bool<AK: ArrayKind>(#[case] _ak: AK) {
-        let elem_ty = bool_type();
+        let elem_ty = opaque_bool_type();
         let size = 4;
         let arr_ty = AK::ty(size, elem_ty.clone());
         let mut dfb = DFGBuilder::new(inout_sig(vec![arr_ty.clone()], type_row![])).unwrap();

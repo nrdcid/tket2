@@ -14,7 +14,7 @@ use hugr::ops::Value;
 use hugr::types::SumType;
 use hugr::types::TypeName;
 
-use crate::extension::bool::{BOOL_EXTENSION_ID, BoolOp, ConstBool};
+use crate::extension::bool::{OPAQUE_BOOL_EXTENSION_ID, OpaqueBoolOp, ConstOpaqueBool};
 use anyhow::{Result, anyhow};
 use inkwell::IntPredicate;
 use inkwell::types::IntType;
@@ -34,10 +34,10 @@ impl BoolCodegenExtension {
         &self,
         context: &mut EmitFuncContext<'c, '_, H>,
         args: EmitOpArgs<'c, '_, ExtensionOp, H>,
-        op: BoolOp,
+        op: OpaqueBoolOp,
     ) -> Result<()> {
         match op {
-            BoolOp::read => {
+            OpaqueBoolOp::read => {
                 let [inp] = args
                     .inputs
                     .try_into()
@@ -50,7 +50,7 @@ impl BoolCodegenExtension {
                     .build_select(res, true_val, false_val, "")?;
                 args.outputs.finish(context.builder(), vec![res])
             }
-            BoolOp::make_opaque => {
+            OpaqueBoolOp::make_opaque => {
                 let [inp] = args
                     .inputs
                     .try_into()
@@ -60,7 +60,7 @@ impl BoolCodegenExtension {
                 let res = bool_val.build_get_tag(context.builder())?;
                 args.outputs.finish(context.builder(), vec![res.into()])
             }
-            BoolOp::not => {
+            OpaqueBoolOp::not => {
                 let [inp] = args
                     .inputs
                     .try_into()
@@ -77,10 +77,10 @@ impl BoolCodegenExtension {
                 let inp1_val = inp1.into_int_value();
                 let inp2_val = inp2.into_int_value();
                 let res = match binary_op {
-                    BoolOp::and => context.builder().build_and(inp1_val, inp2_val, "")?,
-                    BoolOp::or => context.builder().build_or(inp1_val, inp2_val, "")?,
-                    BoolOp::xor => context.builder().build_xor(inp1_val, inp2_val, "")?,
-                    BoolOp::eq => context.builder().build_int_compare(
+                    OpaqueBoolOp::and => context.builder().build_and(inp1_val, inp2_val, "")?,
+                    OpaqueBoolOp::or => context.builder().build_or(inp1_val, inp2_val, "")?,
+                    OpaqueBoolOp::xor => context.builder().build_xor(inp1_val, inp2_val, "")?,
+                    OpaqueBoolOp::eq => context.builder().build_int_compare(
                         IntPredicate::EQ,
                         inp1_val,
                         inp2_val,
@@ -103,10 +103,10 @@ impl CodegenExtension for BoolCodegenExtension {
         Self: 'a,
     {
         builder
-            .custom_type((BOOL_EXTENSION_ID, BOOL_TYPE_ID), |ts, _| {
+            .custom_type((OPAQUE_BOOL_EXTENSION_ID, BOOL_TYPE_ID), |ts, _| {
                 Ok(llvm_bool_type(&ts).into())
             })
-            .custom_const::<ConstBool>(|context, val| {
+            .custom_const::<ConstOpaqueBool>(|context, val| {
                 let bool_ty = llvm_bool_type(&context.typing_session());
                 Ok(bool_ty.const_int(val.value().into(), false).into())
             })
@@ -126,14 +126,14 @@ mod test {
     use hugr::llvm::test::{TestContext, llvm_ctx, single_op_hugr};
 
     #[rstest]
-    #[case::read(1, BoolOp::read)]
-    #[case::make_opaque(2, BoolOp::make_opaque)]
-    #[case::not(3, BoolOp::not)]
-    #[case::and(4, BoolOp::and)]
-    #[case::or(5, BoolOp::or)]
-    #[case::xor(6, BoolOp::xor)]
-    #[case::eq(7, BoolOp::eq)]
-    fn emit_all_ops(#[case] _id: i32, #[with(_id)] mut llvm_ctx: TestContext, #[case] op: BoolOp) {
+    #[case::read(1, OpaqueBoolOp::read)]
+    #[case::make_opaque(2, OpaqueBoolOp::make_opaque)]
+    #[case::not(3, OpaqueBoolOp::not)]
+    #[case::and(4, OpaqueBoolOp::and)]
+    #[case::or(5, OpaqueBoolOp::or)]
+    #[case::xor(6, OpaqueBoolOp::xor)]
+    #[case::eq(7, OpaqueBoolOp::eq)]
+    fn emit_all_ops(#[case] _id: i32, #[with(_id)] mut llvm_ctx: TestContext, #[case] op: OpaqueBoolOp) {
         let pcg = DefaultPreludeCodegen;
         llvm_ctx.add_extensions(move |ceb| {
             ceb.add_extension(BoolCodegenExtension)

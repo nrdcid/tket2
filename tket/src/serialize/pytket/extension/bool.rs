@@ -1,7 +1,7 @@
 //! Encoder and decoder for the tket.bool extension
 
 use super::PytketEmitter;
-use crate::extension::bool::{BOOL_EXTENSION_ID, BOOL_TYPE_NAME, BoolOp, ConstBool};
+use crate::extension::bool::{OPAQUE_BOOL_EXTENSION_ID, OPAQUE_BOOL_TYPE_NAME, OpaqueBoolOp, ConstOpaqueBool};
 use crate::serialize::pytket::config::TypeTranslatorSet;
 use crate::serialize::pytket::decoder::{
     DecodeStatus, LoadedParameter, PytketDecoderContext, TrackedBit, TrackedQubit,
@@ -27,7 +27,7 @@ pub struct BoolEmitter;
 
 impl<H: HugrView> PytketEmitter<H> for BoolEmitter {
     fn extensions(&self) -> Option<Vec<ExtensionId>> {
-        Some(vec![BOOL_EXTENSION_ID])
+        Some(vec![OPAQUE_BOOL_EXTENSION_ID])
     }
 
     fn op_to_pytket(
@@ -37,22 +37,22 @@ impl<H: HugrView> PytketEmitter<H> for BoolEmitter {
         hugr: &H,
         encoder: &mut PytketEncoderContext<H>,
     ) -> Result<EncodeStatus, PytketEncodeError<H::Node>> {
-        let Ok(rot_op) = BoolOp::from_extension_op(op) else {
+        let Ok(rot_op) = OpaqueBoolOp::from_extension_op(op) else {
             return Ok(EncodeStatus::Unsupported);
         };
 
         let (num_inputs, num_outputs, clop) = match rot_op {
             // Conversion ops between native bools and `tket.bool`.
             // Both are represented as a pytket bit, so this is a no-op.
-            BoolOp::read | BoolOp::make_opaque => {
+            OpaqueBoolOp::read | OpaqueBoolOp::make_opaque => {
                 encoder.emit_transparent_node(node, hugr, |_| Vec::new())?;
                 return Ok(EncodeStatus::Success);
             }
-            BoolOp::eq => (2, 1, ClOp::BitEq),
-            BoolOp::not => (1, 1, ClOp::BitNot),
-            BoolOp::and => (2, 1, ClOp::BitAnd),
-            BoolOp::or => (2, 1, ClOp::BitOr),
-            BoolOp::xor => (2, 1, ClOp::BitXor),
+            OpaqueBoolOp::eq => (2, 1, ClOp::BitEq),
+            OpaqueBoolOp::not => (1, 1, ClOp::BitNot),
+            OpaqueBoolOp::and => (2, 1, ClOp::BitAnd),
+            OpaqueBoolOp::or => (2, 1, ClOp::BitOr),
+            OpaqueBoolOp::xor => (2, 1, ClOp::BitXor),
         };
 
         // We assume here all operations are a single expression node, with only
@@ -76,7 +76,7 @@ impl<H: HugrView> PytketEmitter<H> for BoolEmitter {
         value: &OpaqueValue,
         encoder: &mut PytketEncoderContext<H>,
     ) -> Result<Option<TrackedValues>, PytketEncodeError<H::Node>> {
-        let Some(const_b) = value.value().downcast_ref::<ConstBool>() else {
+        let Some(const_b) = value.value().downcast_ref::<ConstOpaqueBool>() else {
             return Ok(None);
         };
 
@@ -92,7 +92,7 @@ impl<H: HugrView> PytketEmitter<H> for BoolEmitter {
 
 impl PytketTypeTranslator for BoolEmitter {
     fn extensions(&self) -> Vec<ExtensionId> {
-        vec![BOOL_EXTENSION_ID]
+        vec![OPAQUE_BOOL_EXTENSION_ID]
     }
 
     fn type_to_pytket(
@@ -100,7 +100,7 @@ impl PytketTypeTranslator for BoolEmitter {
         typ: &hugr::types::CustomType,
         _set: &TypeTranslatorSet,
     ) -> Option<RegisterCount> {
-        if typ.name() == &*BOOL_TYPE_NAME {
+        if typ.name() == &*OPAQUE_BOOL_TYPE_NAME {
             Some(RegisterCount::only_bits(1))
         } else {
             None
@@ -152,11 +152,11 @@ impl PytketDecoder for BoolEmitter {
         }
 
         let (op, num_inputs) = match clexpr.expr.op {
-            ClOp::BitEq => (BoolOp::eq, 2),
-            ClOp::BitNot => (BoolOp::not, 1),
-            ClOp::BitAnd => (BoolOp::and, 2),
-            ClOp::BitOr => (BoolOp::or, 2),
-            ClOp::BitXor => (BoolOp::xor, 2),
+            ClOp::BitEq => (OpaqueBoolOp::eq, 2),
+            ClOp::BitNot => (OpaqueBoolOp::not, 1),
+            ClOp::BitAnd => (OpaqueBoolOp::and, 2),
+            ClOp::BitOr => (OpaqueBoolOp::or, 2),
+            ClOp::BitXor => (OpaqueBoolOp::xor, 2),
             _ => return Ok(DecodeStatus::Unsupported),
         };
 
