@@ -13,4 +13,6 @@ pub use chunks::CircuitChunks;
 pub mod guppy;
 pub use guppy::NormalizeGuppy;
 
+pub mod inline;
+
 pub mod unpack_container;
