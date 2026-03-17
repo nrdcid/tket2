@@ -1,13 +1,19 @@
+use std::collections::{HashMap, HashSet, VecDeque};
+
 use hugr::hugr::patch::inline_call::InlineCallError;
 use hugr::hugr::patch::{Patch, inline_call::InlineCall};
 use hugr_core::module_graph::{ModuleGraph, StaticNode};
 use hugr_core::{Node, hugr::hugrmut::HugrMut, metadata::Metadata};
 use hugr_passes::{ComposablePass, PassScope, composable::WithScope};
+use hugr_passes::{InScope, RemoveDeadFuncsPass};
 
 use itertools::Itertools;
 use petgraph::algo::tarjan_scc;
 use petgraph::data::DataMap;
-use petgraph::visit::{IntoNodeReferences, NodeFiltered, Reversed, Topo, Walker};
+use petgraph::visit::{
+    Data, Dfs, IntoNeighbors, IntoNodeIdentifiers, IntoNodeReferences, NodeFiltered, NodeIndexable,
+    Visitable, Walker,
+};
 use serde::{Deserialize, Serialize};
 
 /// Annotation that may be applied to functions to indicate
@@ -59,75 +65,130 @@ impl<H: HugrMut> ComposablePass<H> for InlinePass {
     type Result = ();
 
     fn run(&self, hugr: &mut H) -> Result<(), InlineError<H::Node>> {
+        let Some(root) = self.scope.root(hugr) else {
+            return Ok(()); // Nothing to do
+        };
         let cg = ModuleGraph::new(hugr);
-        // TODO this is not correct for Entrypoint scopes, where we should only consider
-        // reached functions.
-        let always_funcs = NodeFiltered::from_fn(cg.graph(), |n| match cg.graph().node_weight(n) {
-            Some(StaticNode::FuncDefn(n)) => {
-                hugr.get_metadata::<InlineAnnotation>(*n)
-                    .unwrap_or_default()
-                    == InlineAnnotation::Always
-            }
-            _ => false,
-        });
-        if let Some(cycle) = tarjan_scc(&always_funcs).into_iter().find(|ns| {
-            ns.iter()
-                .exactly_one()
-                .ok()
-                .is_none_or(|n| // multi-node, or single-node cycle
-                cg.graph().edges_connecting(*n, *n).next().is_some())
-        }) {
-            let always_funcs_in_cycle = cycle
-                .into_iter()
-                .map(|n| match always_funcs.node_weight(n).unwrap() {
-                    StaticNode::FuncDefn(fd) => *fd,
-                    _ => panic!("Expected only FuncDefns in sccs"),
+        let reachable_always = {
+            let filter_reachable = match &self.scope {
+                PassScope::Global(_) => None,
+                PassScope::EntrypointFlat | PassScope::EntrypointRecursive => Some(
+                    Dfs::new(cg.graph(), cg.node_index(hugr.entrypoint()).unwrap())
+                        .iter(&cg.graph())
+                        .collect::<Vec<_>>(),
+                ),
+                p => todo!("Update to handle new {p:?}"),
+            };
+            hugr.children(hugr.module_root())
+                .filter_map(|n| cg.node_index(n).map(|ni| (n, ni)))
+                .filter(|(_, ni)| {
+                    filter_reachable
+                        .as_ref()
+                        .is_none_or(|reachable| reachable.contains(&ni))
                 })
-                .collect();
-            return Err(InlineError::AlwaysCycle(always_funcs_in_cycle));
-        }
-        // Reverse graph, so we inline leaves before their callers
-        let g = Reversed(&always_funcs);
-        let funcs = Topo::new(&g)
-            .iter(&g)
-            .map(|n| match always_funcs.node_weight(n).unwrap() {
-                StaticNode::FuncDefn(func) => *func,
-                _ => unreachable!("Only FuncDefns in always_funcs"),
-            })
-            .collect::<Vec<_>>(); // Make list so we stop borrowing `hugr`
-        for func in funcs {
-            for (call, _) in hugr.static_targets(func).unwrap().collect::<Vec<_>>() {
-                do_inline(call, hugr);
+                .filter(|(n, _)| {
+                    hugr.get_optype(*n).is_func_defn()
+                        && hugr
+                            .get_metadata::<InlineAnnotation>(*n)
+                            .unwrap_or_default()
+                            == InlineAnnotation::Always
+                })
+                .collect::<HashMap<_, _>>()
+        };
+
+        // If we inverted the map, we'd save a little here, but it'd get much worse in the reverse lookup below
+        check_no_cycles(&NodeFiltered::from_fn(cg.graph(), |n| {
+            match cg.graph().node_weight(n).unwrap() {
+                StaticNode::FuncDefn(func) => reachable_always.contains_key(func),
+                _ => false,
             }
-            // Quick pass of dead-function elimination, to ease only-called-once inlining below
-            if matches!(self.scope, PassScope::Global(_)) {
-                assert_eq!(hugr.static_targets(func).unwrap().count(), 0);
-                if !self.scope.preserve_interface(hugr).contains(&func) {
-                    hugr.remove_subtree(func);
+        }));
+        let mut parents = VecDeque::from([root]);
+        let mut seen = HashSet::new();
+        while let Some(parent) = parents.pop_front() {
+            if hugr.get_optype(parent).is_func_defn() {
+                seen.insert(parent);
+            }
+            let mut to_inline = Vec::new();
+            for child in hugr.children(parent) {
+                if hugr.first_child(child).is_some() {
+                    parents.push_back(child);
+                } else if hugr.get_optype(child).is_call()
+                    && let Some(func) = hugr.static_source(child)
+                    && reachable_always.contains_key(&func)
+                {
+                    to_inline.push((child, func));
+                }
+            }
+            while let Some((call, func)) = to_inline.pop() {
+                do_inline(call, hugr);
+                // We have not inlined everything into `func` yet, so there may still be some work to do in the inlined copy.
+                // (Inlining in postorder traversal order would avoid this for PassScope::Global,
+                // but we cannot do that for PassScope::EntrypointFlat/Recursive, as there we cannot
+                // touch the functions until they are inlined into the entrypoint-subtree.)
+                if !seen.contains(&func) {
+                    parents.push_back(call);
                 }
             }
         }
-        // Also inline any function called only once.
+        // Also inline any function called only once. Removing dead funcs first enhances.
+        RemoveDeadFuncsPass::default_with_scope(self.scope.clone())
+            .run(hugr)
+            .unwrap();
+        let funcs_to_preserve = self.scope.preserve_interface(hugr).collect::<HashSet<_>>();
         let cg = ModuleGraph::new(hugr);
         let called_once = cg
             .graph()
             .node_references()
             .filter_map(|(_, sn)| match sn {
-                StaticNode::FuncDefn(func) => hugr
+                StaticNode::FuncDefn(func) if !funcs_to_preserve.contains(func) => hugr
                     .static_targets(*func)
                     .unwrap()
-                    .collect_array::<1>()
-                    .map(|[(call, _port)]| (*func, call)),
+                    .exactly_one()
+                    .ok()
+                    .map(|(call, _port)| (*func, call)),
 
                 _ => None,
             })
             .collect::<Vec<_>>();
         for (func, call) in called_once {
-            do_inline(call, hugr);
-            hugr.remove_subtree(func);
+            if self.scope.in_scope(hugr, call) != InScope::No {
+                do_inline(call, hugr);
+                if root == hugr.module_root() {
+                    hugr.remove_subtree(func);
+                }
+            }
         }
         Ok(())
     }
+}
+
+fn check_no_cycles<N: Copy>(
+    g: impl Copy
+    + Visitable
+    + Data<NodeWeight = StaticNode<N>>
+    + DataMap
+    + IntoNeighbors
+    + IntoNodeIdentifiers
+    + NodeIndexable,
+) -> Result<(), Vec<N>> {
+    if let Some(cycle) = tarjan_scc(g).into_iter().find(|ns| {
+        ns.iter()
+            .exactly_one()
+            .ok()
+            .is_none_or(|n| // multi-node, or single-node cycle
+            g.neighbors(*n).contains(&n))
+    }) {
+        let funcs_in_cycle = cycle
+            .into_iter()
+            .map(|n| match g.node_weight(n).unwrap() {
+                StaticNode::FuncDefn(fd) => *fd,
+                _ => panic!("Expected only FuncDefns in sccs"),
+            })
+            .collect();
+        return Err(funcs_in_cycle);
+    }
+    Ok(())
 }
 
 fn do_inline<H: HugrMut>(call: H::Node, hugr: &mut H) {
