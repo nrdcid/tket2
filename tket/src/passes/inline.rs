@@ -70,29 +70,23 @@ impl<H: HugrMut> ComposablePass<H> for InlinePass {
             }
             _ => false,
         });
-        let always_funcs_in_cycles = tarjan_scc(&always_funcs)
-            .into_iter()
-            .flat_map(|ns| {
-                if let Ok(n) = ns.iter().exactly_one()
-                    && cg.graph().edges_connecting(*n, *n).next().is_none()
-                {
-                    Vec::new() // Single-node SCC has no self edge, so discard
-                } else {
-                    ns.into_iter()
-                        .map(|n| {
-                            let StaticNode::FuncDefn(fd) = always_funcs.node_weight(n).unwrap()
-                            else {
-                                panic!("Expected only FuncDefns in sccs")
-                            };
-                            *fd
-                        })
-                        .collect()
-                }
-            })
-            .collect::<Vec<_>>();
-        if !always_funcs_in_cycles.is_empty() {
-            return Err(InlineError::AlwaysCycle(always_funcs_in_cycles));
+        if let Some(cycle) = tarjan_scc(&always_funcs).into_iter().find(|ns| {
+            ns.iter()
+                .exactly_one()
+                .ok()
+                .is_none_or(|n| // multi-node, or single-node cycle
+                cg.graph().edges_connecting(*n, *n).next().is_some())
+        }) {
+            let always_funcs_in_cycle = cycle
+                .into_iter()
+                .map(|n| match always_funcs.node_weight(n).unwrap() {
+                    StaticNode::FuncDefn(fd) => *fd,
+                    _ => panic!("Expected only FuncDefns in sccs"),
+                })
+                .collect();
+            return Err(InlineError::AlwaysCycle(always_funcs_in_cycle));
         }
+
         let always_funcs = always_funcs
             .node_references()
             .filter_map(|(_, sn)| match sn {
