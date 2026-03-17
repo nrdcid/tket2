@@ -7,7 +7,7 @@ use hugr_passes::{ComposablePass, PassScope, composable::WithScope};
 use itertools::Itertools;
 use petgraph::algo::tarjan_scc;
 use petgraph::data::DataMap;
-use petgraph::visit::{IntoNodeReferences, NodeFiltered};
+use petgraph::visit::{IntoNodeReferences, NodeFiltered, Reversed, Topo, Walker};
 use serde::{Deserialize, Serialize};
 
 /// Annotation that may be applied to functions to indicate
@@ -86,15 +86,16 @@ impl<H: HugrMut> ComposablePass<H> for InlinePass {
                 .collect();
             return Err(InlineError::AlwaysCycle(always_funcs_in_cycle));
         }
-
-        let always_funcs = always_funcs
-            .node_references()
-            .filter_map(|(_, sn)| match sn {
-                StaticNode::FuncDefn(func) => Some(*func),
-                _ => None,
+        // Reverse graph, so we inline leaves before their callers
+        let g = Reversed(&always_funcs);
+        let funcs = Topo::new(&g)
+            .iter(&g)
+            .map(|n| match always_funcs.node_weight(n).unwrap() {
+                StaticNode::FuncDefn(func) => *func,
+                _ => unreachable!("Only FuncDefns in always_funcs"),
             })
-            .collect::<Vec<H::Node>>();
-        for func in always_funcs {
+            .collect::<Vec<_>>(); // Make list so we stop borrowing `hugr`
+        for func in funcs {
             for (call, _) in hugr.static_targets(func).unwrap().collect::<Vec<_>>() {
                 do_inline(call, hugr);
             }
