@@ -219,6 +219,22 @@ def rng() -> bytes:
     return main.compile().to_bytes()
 
 
+def modifiers() -> bytes:
+    from guppylang import enable_experimental_features
+    enable_experimental_features()
+    @guppy
+    def main() -> None:
+        q1 = qubit()
+        q2 = qubit()
+        h(q1)
+        with control(q1):
+            x(q2)
+        result("q1", measure(q1))
+        result("q2", measure(q2))
+
+    return main.compile().to_bytes()
+
+
 def entry_args() -> bytes:
     @guppy
     def foo(a: int) -> None:
@@ -243,6 +259,7 @@ if __name__ == "__main__":
         print_current_shot,
         rng,
         entry_args,
+        modifiers,
     ]:
         envelope = func()
         (resources_dir / f"{func.__name__}.hugr").write_bytes(envelope)

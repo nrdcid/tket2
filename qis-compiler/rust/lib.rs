@@ -36,7 +36,9 @@ use tket::hugr::std_extensions::{collections, logic, ptr};
 use tket::hugr::{self, llvm::inkwell};
 use tket::hugr::{Hugr, HugrView, Node};
 use tket::llvm::rotation::RotationCodegenExtension;
+use tket::modifier::ModifierResolverPass;
 use tket_qsystem::QSystemPass;
+use hugr::algorithms::ComposablePass;
 use tket_qsystem::extension::{futures as qsystem_futures, qsystem, result as qsystem_result};
 use tket_qsystem::llvm::array_utils::ArrayLowering;
 pub use tket_qsystem::llvm::futures::FuturesCodegenExtension;
@@ -142,6 +144,7 @@ fn get_hugr_llvm_module<'c, 'hugr, 'a: 'c>(
 }
 
 fn process_hugr(hugr: &mut Hugr) -> Result<()> {
+    ModifierResolverPass::default().run(hugr)?;
     QSystemPass::default().run(hugr)?;
     Ok(())
 }

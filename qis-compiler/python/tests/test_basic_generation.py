@@ -66,6 +66,7 @@ def test_unsupported_pytket_ops() -> None:
         "rus",
         "print_current_shot",
         "rng",
+        "modifiers",
     ],
 )
 @pytest.mark.parametrize("target_triple", triples)
