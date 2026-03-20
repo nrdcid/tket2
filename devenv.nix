@@ -1,8 +1,10 @@
 { pkgs, lib, inputs, ... }:
 let
-  pkgs-stable = import inputs.nixpkgs-2505 { system = pkgs.stdenv.system; };
-  llvmVersion = "14";
-  llvmPackages = pkgs-stable."llvmPackages_${llvmVersion}";
+  llvmVersion = "21";
+  llvmPackages = pkgs."llvmPackages_${llvmVersion}";
+  versionInfo = builtins.splitVersion llvmPackages.release_version;
+  llvmVersionMajor = builtins.elemAt versionInfo 0;
+  llvmVersionMinor = builtins.elemAt versionInfo 1;
 in
 {
   # https://devenv.sh/packages/
@@ -20,6 +22,9 @@ in
     pkgs.ncurses
     pkgs.stdenv.cc.cc.lib
     pkgs.conan
+    # cmake is needed for conan to build packages from source when
+    # prebuilt binaries aren't available for Nix's clang version.
+    pkgs.cmake
 
   ] ++ lib.optionals pkgs.stdenv.isDarwin [
     pkgs.xz
@@ -40,7 +45,7 @@ in
   '';
 
   env = {
-    "LLVM_SYS_${llvmVersion}0_PREFIX" = "${llvmPackages.libllvm.dev}";
+    "LLVM_SYS_${llvmVersionMajor}${llvmVersionMinor}_PREFIX" = "${llvmPackages.libllvm.dev}";
     "LIBCLANG_PATH" = "${pkgs.libclang.lib}/lib";
     # hardening removed due its impact on tikv-jemalloc-sys build,
     # as depended upon by tikv-jemalloc-sys
