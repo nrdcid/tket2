@@ -1,3 +1,4 @@
+//! Pass to inline calls to functions, controlled by [InlineAnnotation] metadata.
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use hugr::hugr::patch::inline_call::InlineCallError;
@@ -37,13 +38,15 @@ impl Metadata for InlineAnnotation {
 }
 
 /// Errors that may be raised by [InlinePass]
-#[derive(Clone, Debug, PartialEq, Eq, derive_more::Display, derive_more::Error)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_more::Display)]
 pub enum InlineError<N = Node> {
     /// Functions annotated with [InlineAnnotation::Always] form a cycle
     /// so inlining would produce an infinitely-big program
-    #[display("Cycle detected in functions marked to Always inline: {_0}")]
+    #[display("Cycle detected in functions marked to Always inline: {_0:?}")]
     AlwaysCycle(Vec<N>),
 }
+
+impl<N: std::fmt::Debug> std::error::Error for InlineError<N> {}
 
 /// A [ComposablePass] that inlines [Call]s to functions
 /// according to [InlineAnnotation]s.
@@ -102,7 +105,8 @@ impl<H: HugrMut> ComposablePass<H> for InlinePass {
                 StaticNode::FuncDefn(func) => reachable_always.contains_key(func),
                 _ => false,
             }
-        }));
+        }))
+        .map_err(InlineError::AlwaysCycle)?;
         let mut parents = VecDeque::from([root]);
         let mut seen = HashSet::new();
         while let Some(parent) = parents.pop_front() {
