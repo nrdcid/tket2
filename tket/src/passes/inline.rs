@@ -5,8 +5,7 @@ use hugr::hugr::patch::inline_call::InlineCallError;
 use hugr::hugr::patch::{Patch, inline_call::InlineCall};
 use hugr_core::module_graph::{ModuleGraph, StaticNode};
 use hugr_core::{Node, hugr::hugrmut::HugrMut, metadata::Metadata};
-use hugr_passes::{ComposablePass, PassScope, composable::WithScope};
-use hugr_passes::{InScope, RemoveDeadFuncsPass};
+use hugr_passes::{ComposablePass, InScope, PassScope, composable::WithScope};
 
 use itertools::Itertools;
 use petgraph::algo::tarjan_scc;
@@ -100,13 +99,17 @@ impl<H: HugrMut> ComposablePass<H> for InlinePass {
         };
 
         // If we inverted the map, we'd save a little here, but it'd get much worse in the reverse lookup below
-        check_no_cycles(&NodeFiltered::from_fn(cg.graph(), |n| {
+        if let Some(cycle) = cycles(&NodeFiltered::from_fn(cg.graph(), |n| {
             match cg.graph().node_weight(n).unwrap() {
                 StaticNode::FuncDefn(func) => reachable_always.contains_key(func),
                 _ => false,
             }
         }))
-        .map_err(InlineError::AlwaysCycle)?;
+        .into_iter()
+        .next()
+        {
+            return Err(InlineError::AlwaysCycle(cycle));
+        }
         let mut parents = VecDeque::from([root]);
         let mut seen = HashSet::new();
         while let Some(parent) = parents.pop_front() {
@@ -135,30 +138,45 @@ impl<H: HugrMut> ComposablePass<H> for InlinePass {
                 }
             }
         }
-        // Also inline any function called only once. Removing dead funcs first enhances.
-        RemoveDeadFuncsPass::default_with_scope(self.scope.clone())
-            .run(hugr)
-            .unwrap();
+        // Also inline any function called only once.
+        // First remove the always-inlined functions themselves, as they are now unreachable.
         let funcs_to_preserve = self.scope.preserve_interface(hugr).collect::<HashSet<_>>();
+        if root == hugr.module_root() {
+            for func in reachable_always.keys() {
+                if !funcs_to_preserve.contains(func) {
+                    hugr.remove_subtree(*func);
+                }
+            }
+        }
         let cg = ModuleGraph::new(hugr);
+        let funcs_in_cycles = cycles(cg.graph())
+            .into_iter()
+            .flatten()
+            .collect::<HashSet<_>>();
+
         let called_once = cg
             .graph()
             .node_references()
             .filter_map(|(_, sn)| match sn {
-                StaticNode::FuncDefn(func) if !funcs_to_preserve.contains(func) => hugr
-                    .static_targets(*func)
-                    .unwrap()
-                    .exactly_one()
-                    .ok()
-                    .map(|(call, _port)| (*func, call)),
+                StaticNode::FuncDefn(func)
+                    if !funcs_to_preserve.contains(func) && !funcs_in_cycles.contains(func) =>
+                {
+                    hugr.static_targets(*func)
+                        .unwrap()
+                        .exactly_one()
+                        .ok()
+                        .map(|(call, _port)| (*func, call))
+                }
 
                 _ => None,
             })
             .collect::<Vec<_>>();
         for (func, call) in called_once {
-            if self.scope.in_scope(hugr, call) != InScope::No {
+            if hugr.get_optype(call).is_call() // skip LoadFunctions
+                && self.scope.in_scope(hugr, call) != InScope::No
+            {
                 do_inline(call, hugr);
-                if root == hugr.module_root() {
+                if self.scope.in_scope(hugr, func) == InScope::Yes {
                     hugr.remove_subtree(func);
                 }
             }
@@ -167,7 +185,7 @@ impl<H: HugrMut> ComposablePass<H> for InlinePass {
     }
 }
 
-fn check_no_cycles<N: Copy>(
+fn cycles<N: Copy>(
     g: impl Copy
     + Visitable
     + Data<NodeWeight = StaticNode<N>>
@@ -175,24 +193,26 @@ fn check_no_cycles<N: Copy>(
     + IntoNeighbors
     + IntoNodeIdentifiers
     + NodeIndexable,
-) -> Result<(), Vec<N>> {
-    if let Some(cycle) = tarjan_scc(g).into_iter().find(|ns| {
-        ns.iter()
-            .exactly_one()
-            .ok()
-            .is_none_or(|n| // multi-node, or single-node cycle
+) -> Vec<Vec<N>> {
+    tarjan_scc(g)
+        .into_iter()
+        .filter(|ns| {
+            ns.iter()
+                .exactly_one()
+                .ok()
+                .is_none_or(|n| // multi-node, or single-node cycle
             g.neighbors(*n).contains(&n))
-    }) {
-        let funcs_in_cycle = cycle
-            .into_iter()
-            .map(|n| match g.node_weight(n).unwrap() {
-                StaticNode::FuncDefn(fd) => *fd,
-                _ => panic!("Expected only FuncDefns in sccs"),
-            })
-            .collect();
-        return Err(funcs_in_cycle);
-    }
-    Ok(())
+        })
+        .map(|cycle| {
+            cycle
+                .into_iter()
+                .map(|n| match g.node_weight(n).unwrap() {
+                    StaticNode::FuncDefn(fd) => *fd,
+                    _ => panic!("Expected only FuncDefns in sccs"),
+                })
+                .collect()
+        })
+        .collect()
 }
 
 fn do_inline<H: HugrMut>(call: H::Node, hugr: &mut H) {
