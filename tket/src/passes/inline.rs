@@ -11,7 +11,7 @@ use itertools::Itertools;
 use petgraph::algo::tarjan_scc;
 use petgraph::data::DataMap;
 use petgraph::visit::{
-    Data, Dfs, IntoNeighbors, IntoNodeIdentifiers, IntoNodeReferences, NodeFiltered, NodeIndexable,
+    Dfs, IntoNeighbors, IntoNodeIdentifiers, IntoNodeReferences, NodeFiltered, NodeIndexable,
     Visitable, Walker,
 };
 use serde::{Deserialize, Serialize};
@@ -86,7 +86,7 @@ impl<H: HugrMut> ComposablePass<H> for InlinePass {
                 .filter(|(_, ni)| {
                     filter_reachable
                         .as_ref()
-                        .is_none_or(|reachable| reachable.contains(&ni))
+                        .is_none_or(|reachable| reachable.contains(ni))
                 })
                 .filter(|(n, _)| {
                     hugr.get_optype(*n).is_func_defn()
@@ -105,7 +105,6 @@ impl<H: HugrMut> ComposablePass<H> for InlinePass {
                 _ => false,
             }
         }))
-        .into_iter()
         .next()
         {
             return Err(InlineError::AlwaysCycle(cycle));
@@ -149,10 +148,7 @@ impl<H: HugrMut> ComposablePass<H> for InlinePass {
             }
         }
         let cg = ModuleGraph::new(hugr);
-        let funcs_in_cycles = cycles(cg.graph())
-            .into_iter()
-            .flatten()
-            .collect::<HashSet<_>>();
+        let funcs_in_cycles = cycles(cg.graph()).flatten().collect::<HashSet<_>>();
 
         let called_once = cg
             .graph()
@@ -185,25 +181,25 @@ impl<H: HugrMut> ComposablePass<H> for InlinePass {
     }
 }
 
-fn cycles<N: Copy>(
+fn cycles<'a, N: Copy>(
     g: impl Copy
     + Visitable
-    + Data<NodeWeight = StaticNode<N>>
-    + DataMap
+    + DataMap<NodeWeight = StaticNode<N>>
     + IntoNeighbors
     + IntoNodeIdentifiers
-    + NodeIndexable,
-) -> Vec<Vec<N>> {
+    + NodeIndexable
+    + 'a,
+) -> impl Iterator<Item = Vec<N>> + 'a {
     tarjan_scc(g)
         .into_iter()
-        .filter(|ns| {
+        .filter(move |ns| {
             ns.iter()
                 .exactly_one()
                 .ok()
                 .is_none_or(|n| // multi-node, or single-node cycle
-            g.neighbors(*n).contains(&n))
+            g.neighbors(*n).contains(n))
         })
-        .map(|cycle| {
+        .map(move |cycle| {
             cycle
                 .into_iter()
                 .map(|n| match g.node_weight(n).unwrap() {
@@ -212,7 +208,6 @@ fn cycles<N: Copy>(
                 })
                 .collect()
         })
-        .collect()
 }
 
 fn do_inline<H: HugrMut>(call: H::Node, hugr: &mut H) {
