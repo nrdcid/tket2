@@ -340,4 +340,9 @@ mod test {
             assert_eq!(hugr, backup);
         }
     }
+
+    #[test]
+    fn entrypoint_scope() {
+        // TODO
+    }
 }
