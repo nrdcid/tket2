@@ -324,14 +324,11 @@ mod test {
 
         InlinePass::default().run(&mut hugr).unwrap();
         hugr.validate().unwrap();
-        let inlined = always || num_calls == 1;
-        assert_eq!(
-            hugr.static_targets(swap.node()).unwrap().count(),
-            if inlined { 0 } else { num_calls }
-        );
-        if inlined {
-            assert_eq!(hugr, backup);
-        } else {
+        let should_be_inlined = always || num_calls == 1;
+        if should_be_inlined {
+            let swap_present =
+                hugr.contains_node(swap.node()) && hugr.get_optype(swap.node()).is_func_defn();
+            assert!(!swap_present);
             InlineDFGsPass::default().run(&mut hugr).unwrap();
             hugr.validate().unwrap();
             let [inp, outp] = hugr.get_io(hugr.entrypoint()).unwrap();
@@ -339,6 +336,8 @@ mod test {
                 HashSet::from_iter(hugr.input_neighbours(outp)),
                 HashSet::from([inp])
             );
+        } else {
+            assert_eq!(hugr, backup);
         }
     }
 }
