@@ -340,4 +340,9 @@ mod test {
     fn entrypoint_scope() {
         // TODO
     }
+
+    // TODO cycle of one always func and one not always, should be inlined to a self-recursive func
+
+    // TODO cycle of two funcs where one has no other calls (and one has, or is preserved),
+    // should be inlined to a self-recursive func
 }
