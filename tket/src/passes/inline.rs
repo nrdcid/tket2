@@ -47,7 +47,7 @@ pub enum InlineError<N = Node> {
 
 impl<N: std::fmt::Debug> std::error::Error for InlineError<N> {}
 
-/// A [ComposablePass] that inlines [Call]s to functions
+/// A [ComposablePass] that inlines `Call`s to functions
 /// according to [InlineAnnotation]s.
 #[derive(Default, Clone, Debug)]
 pub struct InlinePass {
