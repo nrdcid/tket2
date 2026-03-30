@@ -1,43 +1,31 @@
-//! Circuit-related functionality and utilities.
-#![allow(unused)]
+//! Program state definition.
+//!
+//! This module defines [`CompilationState`], a wrapper around a rust-defined
+//! [`hugr::Hugr`] that is optimised for compilation and rewriting.
 
-mod convert;
+mod base;
 mod cost;
-mod tk2circuit;
 
 use derive_more::{From, Into};
-use hugr::extension::prelude::{bool_t, qb_t};
-use hugr::hugr::IdentList;
-use hugr::ops::custom::{ExtensionOp, OpaqueOp};
-use hugr::ops::{OpName, OpType};
-use hugr::types::{CustomType, Type, TypeBound};
 use pyo3::prelude::*;
 use std::fmt;
 
-use hugr::{Hugr, HugrView, Node, PortIndex, type_row};
-use tket::rewrite::CircuitRewrite;
-use tket::serialize::TKETDecode;
-use tket_json_rs::circuit_json::SerialCircuit;
+use hugr::{Node, PortIndex};
 
-use crate::utils::ConvertPyErr;
 use crate::utils::create_py_exception;
 
-pub use self::convert::{CircuitType, try_update_circ, try_with_circ, update_circ, with_circ};
 pub use self::cost::PyCircuitCost;
-pub use self::tk2circuit::{Tk2Circuit, embedded_extensions};
+pub use base::{CompilationState, embedded_extensions};
 pub use tket::{Pauli, TketOp};
 
 /// The module definition
 pub fn module(py: Python<'_>) -> PyResult<Bound<'_, PyModule>> {
-    let m = PyModule::new(py, "circuit")?;
-    m.add_class::<Tk2Circuit>()?;
+    let m = PyModule::new(py, "state")?;
+    m.add_class::<CompilationState>()?;
     m.add_class::<PyNode>()?;
     m.add_class::<PyWire>()?;
     m.add_class::<PyCircuitCost>()?;
 
-    m.add_function(wrap_pyfunction!(validate_circuit, &m)?)?;
-    m.add_function(wrap_pyfunction!(render_circuit_dot, &m)?)?;
-    m.add_function(wrap_pyfunction!(render_circuit_mermaid, &m)?)?;
     m.add_function(wrap_pyfunction!(embedded_extensions, &m)?)?;
 
     m.add("HugrError", py.get_type::<PyHugrError>())?;
@@ -88,24 +76,6 @@ create_py_exception!(
     PyTK1DecodeError,
     "Error decoding a HUGR region from a pytket circuit."
 );
-
-/// Run the validation checks on a circuit.
-#[pyfunction]
-pub fn validate_circuit(c: &Bound<PyAny>) -> PyResult<()> {
-    try_with_circ(c, |circ, _| circ.hugr().validate())
-}
-
-/// Return a Graphviz DOT string representation of the circuit.
-#[pyfunction]
-pub fn render_circuit_dot(c: &Bound<PyAny>) -> PyResult<String> {
-    with_circ(c, |hugr, _| hugr.dot_string())
-}
-
-/// Return a Mermaid diagram representation of the circuit.
-#[pyfunction]
-pub fn render_circuit_mermaid(c: &Bound<PyAny>) -> PyResult<String> {
-    with_circ(c, |hugr, _| hugr.mermaid_string())
-}
 
 /// A [`hugr::Node`] wrapper for Python.
 #[pyclass(from_py_object)]
