@@ -56,7 +56,7 @@ impl<H: HugrView> PytketEmitter<H> for BoolEmitter {
         };
 
         // We assume here all operations are a single expression node, with only
-        // variable inputs. If new [`BoolOp`]s are added that do not follow
+        // variable inputs. If new [`OpaqueBoolOp`]s are added that do not follow
         // this, the following code will need to be adjusted.
         let bit_count = (num_inputs + num_outputs) as usize;
         let output_bits = (num_inputs..(num_inputs + num_outputs)).collect_vec();
@@ -194,7 +194,7 @@ pub(crate) fn set_bits_op(values: &[bool]) -> tket_json_rs::circuit_json::Operat
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::extension::bool::bool_type;
+    use crate::extension::bool::opaque_bool_type;
     use crate::serialize::pytket::{EncodeOptions, TKETDecode};
     use hugr::builder::{Dataflow, DataflowHugr, FunctionBuilder};
     use hugr::types::Signature;
@@ -203,14 +203,14 @@ mod tests {
 
     /// ClExprs .
     #[rstest]
-    #[case::not(BoolOp::not, 1)]
-    #[case::and(BoolOp::and, 2)]
-    #[case::or(BoolOp::or, 2)]
-    #[case::xor(BoolOp::xor, 2)]
-    #[case::eq(BoolOp::eq, 2)]
-    fn bool_op_output_uses_fresh_bits(#[case] op: BoolOp, #[case] num_inputs: usize) {
-        let input_t: Vec<_> = (0..num_inputs).map(|_| bool_type()).collect();
-        let output_t = vec![bool_type()];
+    #[case::not(OpaqueBoolOp::not, 1)]
+    #[case::and(OpaqueBoolOp::and, 2)]
+    #[case::or(OpaqueBoolOp::or, 2)]
+    #[case::xor(OpaqueBoolOp::xor, 2)]
+    #[case::eq(OpaqueBoolOp::eq, 2)]
+    fn bool_op_output_uses_fresh_bits(#[case] op: OpaqueBoolOp, #[case] num_inputs: usize) {
+        let input_t: Vec<_> = (0..num_inputs).map(|_| opaque_bool_type()).collect();
+        let output_t = vec![opaque_bool_type()];
         let mut h = FunctionBuilder::new("bool_op", Signature::new(input_t, output_t)).unwrap();
         let inputs: Vec<_> = h.input_wires().collect();
         let [out] = h.add_dataflow_op(op, inputs).unwrap().outputs_arr();
@@ -224,7 +224,7 @@ mod tests {
             .find(|cmd| cmd.op.op_type == tket_json_rs::OpType::ClExpr)
             .expect("Expected a ClExpr command in the encoded circuit");
 
-        // Args layout for a BoolOp: [input_bits..., output_bit]
+        // Args layout for a OpaqueBoolOp: [input_bits..., output_bit]
         // The output bit must use a fresh register, not one of the input bits.
         assert_eq!(clexpr_cmd.args.len(), num_inputs + 1);
         let input_args = &clexpr_cmd.args[..num_inputs];
