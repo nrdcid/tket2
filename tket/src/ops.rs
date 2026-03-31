@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use smol_str::ToSmolStr;
 use strum::{EnumIter, EnumString, IntoStaticStr};
 
-/// Standar TKET quantum operations.
+/// Standard TKET quantum operations.
 #[derive(
     Clone,
     Copy,

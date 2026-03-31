@@ -2,19 +2,20 @@
 //!
 //! This includes a extension for the opaque TKET1 operations.
 
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 
 use crate::TketOp;
 use crate::serialize::pytket::extension::OpaqueTk1Op;
 use hugr::Extension;
 use hugr::extension::simple_op::MakeOpDef;
 use hugr::extension::{
-    CustomSignatureFunc, ExtensionId, ExtensionRegistry, SignatureError, Version,
+    CustomSignatureFunc, ExtensionBuildError, ExtensionId, ExtensionRegistry, SignatureError,
+    TypeDef, Version,
 };
 use hugr::hugr::IdentList;
 use hugr::std_extensions::STD_REG;
 use hugr::types::type_param::{TypeArg, TypeParam};
-use hugr::types::{PolyFuncType, PolyFuncTypeRV};
+use hugr::types::{CustomType, PolyFuncType, PolyFuncTypeRV, Type, TypeBound};
 use lazy_static::lazy_static;
 use smol_str::SmolStr;
 
@@ -89,6 +90,38 @@ impl CustomSignatureFunc for Tk1Signature {
     }
 }
 
+fn add_measurement_type_def(
+    ext: &mut Extension,
+    extension_ref: Weak<Extension>,
+) -> Result<&TypeDef, ExtensionBuildError> {
+    ext.add_type(
+        MEASUREMENT_TYPE_ID.to_owned(),
+        vec![],
+        "A type representing the result of a measurement operation".into(),
+        TypeBound::Copyable.into(),
+        &extension_ref,
+    )
+}
+
+/// The name of the `Measurement` type.
+pub const MEASUREMENT_TYPE_ID: SmolStr = SmolStr::new_inline("Measurement");
+
+/// Returns a `Measurement` [CustomType].
+pub fn measurement_custom_type(extension_ref: &Weak<Extension>) -> CustomType {
+    CustomType::new(
+        MEASUREMENT_TYPE_ID.to_owned(),
+        vec![],
+        TKET_EXTENSION_ID,
+        TypeBound::Copyable,
+        extension_ref,
+    )
+}
+
+/// Returns a `Measurement` [Type].
+pub fn measurement_type() -> Type {
+    measurement_custom_type(&Arc::downgrade(&TKET_EXTENSION)).into()
+}
+
 /// Name of tket extension.
 pub const TKET_EXTENSION_ID: ExtensionId = ExtensionId::new_unchecked("tket.quantum");
 
@@ -99,6 +132,7 @@ lazy_static! {
     /// The extension definition for TKET ops and types.
     pub static ref TKET_EXTENSION: Arc<Extension> = {
         Extension::new_arc(TKET_EXTENSION_ID, TKET_EXTENSION_VERSION, |res, ext_ref| {
+            let _ = add_measurement_type_def(res, ext_ref.clone()).unwrap();
             TketOp::load_all_ops(res, ext_ref).expect("add_fail");
             SympyOpDef.add_to_extension(res, ext_ref).unwrap();
         })
