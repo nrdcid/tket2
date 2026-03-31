@@ -9,8 +9,8 @@ use std::borrow::Cow;
 use std::collections::HashSet;
 use std::iter::Sum;
 
+use crate::passes::utils::hash::{HashError, HugrHash};
 pub use command::{Command, CommandIterator};
-use hugr::algorithms::hash::{HashError, HugrHash};
 use hugr::extension::prelude::{NoopDef, TupleOpDef};
 use hugr::extension::simple_op::MakeOpDef;
 use hugr::hugr::views::sibling_subgraph::InvalidSubgraph;

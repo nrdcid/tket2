@@ -11,14 +11,15 @@ pub mod pytket;
 pub mod replace_bools;
 
 use derive_more::{Display, Error, From};
-use hugr::algorithms::const_fold::{ConstFoldError, ConstantFoldPass};
-use hugr::algorithms::{
-    ComposablePass as _, MonomorphizePass, RemoveDeadFuncsError, RemoveDeadFuncsPass, force_order,
-    replace_types::ReplaceTypesError,
-};
 use hugr::hugr::{HugrError, hugrmut::HugrMut};
-use hugr::{Hugr, HugrView, Node, core::Visibility, ops::OpType};
-use hugr_core::hugr::internal::HugrMutInternals;
+use hugr::{HugrView, Node, core::Visibility, ops::OpType};
+use hugr_passes::composable::WithScope;
+use hugr_passes::const_fold::{ConstFoldError, ConstantFoldPass};
+use hugr_passes::{
+    ComposablePass, MonomorphizePass, PassScope, RemoveDeadFuncsError, RemoveDeadFuncsPass,
+    force_order, replace_types::ReplaceTypesError,
+};
+use itertools::Itertools as _;
 use std::collections::HashSet;
 
 use lower_drops::LowerDropsPass;
@@ -30,33 +31,37 @@ use extension::{
     qsystem::{LowerTk2Error, LowerTketToQSystemPass, QSystemOp},
 };
 
-#[cfg(feature = "llvm")]
-#[expect(deprecated)]
-// TODO: We still want to run this as long as deserialized hugrs are allowed to contain Value::Function
-// Once that variant is removed, we can remove this pass step.
-use hugr::llvm::utils::inline_constant_functions;
-
 /// Modify a [hugr::Hugr] into a form that is acceptable for ingress into a
 /// Q-System. Returns an error if this cannot be done.
 ///
+/// This pass should only be applied with [`PassScope::Global`] scopes on HUGRs
+/// with function entrypoints. An error will be returned if this is not the
+/// case.
+///
 /// To construct a `QSystemPass` use [Default::default].
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct QSystemPass {
     constant_fold: bool,
     monomorphize: bool,
     force_order: bool,
     lazify: bool,
     hide_funcs: bool,
+
+    /// Where to apply the pass.
+    ///
+    /// Configurable via [`WithScope::with_scope`].
+    scope: PassScope,
 }
 
 impl Default for QSystemPass {
     fn default() -> Self {
         Self {
-            constant_fold: false,
+            constant_fold: true,
             monomorphize: true,
             force_order: true,
             lazify: true,
             hide_funcs: true,
+            scope: PassScope::default(),
         }
     }
 }
@@ -75,13 +80,10 @@ pub enum QSystemPassError<N = Node> {
     ConstantFoldError(ConstFoldError),
     /// An error from the component [LowerDropsPass] pass.
     LinearizeArrayError(ReplaceTypesError),
-    #[cfg(feature = "llvm")]
-    /// An error from the component [inline_constant_functions()] pass.
-    InlineConstantFunctionsError(anyhow::Error),
     /// An error when running [RemoveDeadFuncsPass] after the monomorphisation
     /// pass.
     ///
-    ///  [RemoveDeadFuncsPass]: hugr::algorithms::RemoveDeadFuncsError
+    ///  [RemoveDeadFuncsPass]: hugr_passes::RemoveDeadFuncsError
     DCEError(RemoveDeadFuncsError),
     /// No [FuncDefn] named "main" in [Module].
     ///
@@ -89,87 +91,65 @@ pub enum QSystemPassError<N = Node> {
     /// [Module]: hugr::ops::Module
     #[display("No function named 'main' in module.")]
     NoMain,
+    /// QSystemPass was applied with a local scope.
+    #[display("QSystemPass was applied with a local scope {scope}")]
+    LocalScopeError {
+        /// The scope that was applied.
+        scope: PassScope,
+    },
 }
 
 impl QSystemPass {
-    /// Run `QSystemPass` on the given [Hugr]. `registry` is used for
-    /// validation, if enabled.
-    /// Expects the HUGR to have a function entrypoint.
-    pub fn run(&self, hugr: &mut Hugr) -> Result<(), QSystemPassError> {
-        let entrypoint = if hugr.entrypoint_optype().is_module() {
-            // backwards compatibility: if the entrypoint is a module, we look for
-            // a function named "main" in the module and use that as the entrypoint.
-            hugr.children(hugr.entrypoint())
-                .find(|&n| {
-                    hugr.get_optype(n)
-                        .as_func_defn()
-                        .is_some_and(|fd| fd.func_name() == "main")
-                })
-                .ok_or(QSystemPassError::NoMain)?
-        } else {
-            hugr.entrypoint()
-        };
-
-        // passes that run on whole module
-        hugr.set_entrypoint(hugr.module_root());
-        if self.monomorphize {
-            self.monomorphization().run(hugr).unwrap();
-
-            let rdfp = RemoveDeadFuncsPass::default().with_module_entry_points([entrypoint]);
-            rdfp.run(hugr)?
-        }
-
-        // ReplaceTypes steps (there are several below) can introduce new helper
-        // functions that are public to enable linking/sharing. We'll make these private
-        // once we're done so that LLVM is not forced to compile them as callable.
-        let pubfuncs = self.hide_funcs.then(|| {
-            hugr.children(hugr.module_root())
-                .filter(|n| {
-                    hugr.get_optype(*n)
-                        .as_func_defn()
-                        .is_some_and(|fd| fd.visibility() == &Visibility::Public)
-                })
-                .collect::<HashSet<_>>()
-        });
-
-        self.lower_tk2().run(hugr)?;
-        if self.lazify {
-            self.replace_bools().run(hugr)?;
-        }
-        self.lower_drops().run(hugr)?;
-
-        if let Some(pubfuncs) = pubfuncs {
-            for n in hugr
-                .children(hugr.module_root())
-                .filter(|n| !pubfuncs.contains(n))
-                .collect::<Vec<_>>()
-            {
-                if let OpType::FuncDefn(fd) = hugr.optype_mut(n) {
-                    *fd.visibility_mut() = Visibility::Private;
-                }
-            }
-        }
-
-        #[cfg(feature = "llvm")]
-        {
-            // TODO: We still want to run this as long as deserialized hugrs are allowed to contain Value::Function
-            // Once that variant is removed, we can remove this pass step.
-            #[expect(deprecated)]
-            inline_constant_functions(hugr)?;
-        }
-        if self.constant_fold {
-            self.constant_fold().run(hugr)?;
-        }
-        if self.force_order {
-            self.force_order(hugr)?;
-        }
-        // restore the entrypoint
-        hugr.set_entrypoint(entrypoint);
-        Ok(())
+    /// Returns a new `QSystemPass` with constant folding enabled according to
+    /// `constant_fold`.
+    ///
+    /// On by default
+    pub fn with_constant_fold(mut self, constant_fold: bool) -> Self {
+        self.constant_fold = constant_fold;
+        self
     }
 
-    fn force_order(&self, hugr: &mut Hugr) -> Result<(), QSystemPassError> {
-        force_order(hugr, hugr.entrypoint(), |hugr, node| {
+    /// Returns a new `QSystemPass` with monomorphization enabled according to
+    /// `monomorphize`.
+    ///
+    /// On by default.
+    pub fn with_monomorphize(mut self, monomorphize: bool) -> Self {
+        self.monomorphize = monomorphize;
+        self
+    }
+
+    /// Changes whether we force a total ordering on all ops in the Hugr.
+    ///
+    /// On by default.
+    ///
+    /// When enabled, we push quantum ops as early as possible, and we push
+    /// `tket.futures.read` ops as late as possible.
+    pub fn with_force_order(mut self, force_order: bool) -> Self {
+        self.force_order = force_order;
+        self
+    }
+
+    /// Enables or disables lazification of quantum measurement ops.
+    ///
+    /// On by default.
+    ///
+    /// When enabled we replace strict measurement ops with lazy equivalents
+    /// from `tket.qsystem`.
+    pub fn with_lazify(mut self, lazify: bool) -> Self {
+        self.lazify = lazify;
+        self
+    }
+
+    /// Add order edges in the HUGR regions to force qubit frees to be as early
+    /// as possible, quantum ops to be as early as possible, and Future::Reads
+    /// to be as late as possible.
+    fn force_order(&self, hugr: &mut impl HugrMut<Node = Node>) -> Result<(), QSystemPassError> {
+        let Some(root) = self.scope.root(hugr) else {
+            // Scope tells us not to modify any node.
+            return Ok(());
+        };
+
+        force_order(hugr, root, |hugr, node| {
             let optype = hugr.get_optype(node);
 
             let is_quantum =
@@ -205,76 +185,123 @@ impl QSystemPass {
                 1
             }
         })?;
-        Ok::<_, QSystemPassError>(())
+        Ok(())
     }
 
-    fn lower_tk2(&self) -> LowerTketToQSystemPass {
-        LowerTketToQSystemPass
-    }
-
-    fn replace_bools(&self) -> ReplaceBoolPass {
-        ReplaceBoolPass
-    }
-
-    fn constant_fold(&self) -> ConstantFoldPass {
-        ConstantFoldPass::default()
-    }
-
-    fn monomorphization(&self) -> MonomorphizePass {
-        MonomorphizePass
-    }
-
-    fn lower_drops(&self) -> LowerDropsPass {
-        LowerDropsPass
-    }
-
-    /// Returns a new `QSystemPass` with constant folding enabled according to
-    /// `constant_fold`.
+    /// Find a function named "main" in the HUGR.
     ///
-    /// Off by default.
-    pub fn with_constant_fold(mut self, constant_fold: bool) -> Self {
-        self.constant_fold = constant_fold;
+    /// This is used for backwards compatibility with HUGRs that have a module as
+    /// the entrypoint.
+    ///
+    /// Returns [`QSystemPassError::NoMain`] if there is no function named "main".
+    fn find_main(&self, hugr: &impl HugrView<Node = Node>) -> Result<Node, QSystemPassError> {
+        hugr.children(hugr.module_root())
+            .find(|&n| {
+                hugr.get_optype(n)
+                    .as_func_defn()
+                    .is_some_and(|fd| fd.func_name() == "main")
+            })
+            .ok_or(QSystemPassError::NoMain)
+    }
+
+    /// Collect the set of public function definitions in the HUGR, if `hide_funcs` is
+    /// enabled. These will be made private at the end of the pass to avoid
+    /// forcing LLVM to compile them as callable.
+    fn collect_pub_funcs(&self, hugr: &impl HugrView<Node = Node>) -> Option<HashSet<Node>> {
+        self.hide_funcs.then(|| {
+            hugr.children(hugr.module_root())
+                .filter(|n| {
+                    hugr.get_optype(*n)
+                        .as_func_defn()
+                        .is_some_and(|fd| fd.visibility() == &Visibility::Public)
+                })
+                .collect::<HashSet<_>>()
+        })
+    }
+
+    /// Mark non-whitelisted function definitions as private to avoid forcing LLVM to compile them as callable.
+    ///
+    /// Use [`Self::collect_pub_funcs`] to get the set of whitelisted public functions before running the main passes.
+    fn hide_non_pub_funcs(&self, hugr: &mut impl HugrMut<Node = Node>, pub_funcs: HashSet<Node>) {
+        for n in hugr.children(hugr.module_root()).collect_vec() {
+            if !pub_funcs.contains(&n)
+                && let OpType::FuncDefn(fd) = hugr.optype_mut(n)
+            {
+                *fd.visibility_mut() = Visibility::Private;
+            }
+        }
+    }
+}
+
+impl WithScope for QSystemPass {
+    fn with_scope(mut self, scope: impl Into<PassScope>) -> Self {
+        self.scope = scope.into();
         self
     }
+}
 
-    /// Returns a new `QSystemPass` with monomorphization enabled according to
-    /// `monomorphize`.
-    ///
-    /// On by default.
-    pub fn with_monormophize(mut self, monomorphize: bool) -> Self {
-        self.monomorphize = monomorphize;
-        self
-    }
+impl<H: HugrMut<Node = Node> + 'static> ComposablePass<H> for QSystemPass {
+    type Error = QSystemPassError;
+    type Result = ();
 
-    /// Returns a new `QSystemPass` with forcing the HUGR to have
-    /// totally-ordered ops enabled according to `force_order`.
-    ///
-    /// On by default.
-    ///
-    /// When enabled, we push quantum ops as early as possible, and we push
-    /// `tket.futures.read` ops as late as possible.
-    pub fn with_force_order(mut self, force_order: bool) -> Self {
-        self.force_order = force_order;
-        self
-    }
+    /// Run `QSystemPass` on the given Hugr. `registry` is used for
+    /// validation, if enabled.
+    /// Expects the HUGR to have a function entrypoint.
+    fn run(&self, hugr: &mut H) -> Result<(), QSystemPassError> {
+        if !matches!(self.scope, PassScope::Global(_)) {
+            return Err(QSystemPassError::LocalScopeError {
+                scope: self.scope.clone(),
+            });
+        }
 
-    /// Returns a new `QSystemPass` with lazification enabled according to
-    /// `lazify`.
-    ///
-    /// On by default.
-    ///
-    /// When enabled we replace strict measurement ops with lazy equivalents
-    /// from `tket.qsystem`.
-    pub fn with_lazify(mut self, lazify: bool) -> Self {
-        self.lazify = lazify;
-        self
+        if self.monomorphize {
+            MonomorphizePass::default_with_scope(self.scope.clone())
+                .run(hugr)
+                .unwrap_or_else(|never| match never {});
+            RemoveDeadFuncsPass::default_with_scope(self.scope.clone()).run(hugr)?
+        }
+
+        // ReplaceTypes steps (there are several below) can introduce new helper
+        // functions that are public to enable linking/sharing. We'll make these private
+        // once we're done so that LLVM is not forced to compile them as callable.
+        let pub_funcs = self.collect_pub_funcs(hugr);
+
+        LowerTketToQSystemPass::default_with_scope(self.scope.clone()).run(hugr)?;
+        if self.lazify {
+            ReplaceBoolPass::default_with_scope(self.scope.clone()).run(hugr)?;
+        }
+
+        LowerDropsPass::default_with_scope(self.scope.clone()).run(hugr)?;
+
+        // Mark any new helper functions as private.
+        if let Some(pub_funcs) = pub_funcs {
+            self.hide_non_pub_funcs(hugr, pub_funcs);
+        }
+
+        if self.constant_fold {
+            ConstantFoldPass::default().run(hugr)?;
+        }
+        if self.force_order {
+            self.force_order(hugr)?;
+        }
+
+        // Backwards compatibility: If the entrypoint is a module, find a function named "main" and set that as
+        // entrypoint instead.
+        if hugr.entrypoint() == hugr.module_root() {
+            let main_n = self.find_main(hugr)?;
+            hugr.set_entrypoint(main_n);
+        }
+
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod test {
+    use super::*;
+
     use hugr::{
-        Hugr, HugrView as _,
+        Hugr,
         builder::{Dataflow, DataflowHugr, DataflowSubContainer, FunctionBuilder, HugrBuilder},
         core::Visibility,
         extension::prelude::qb_t,
@@ -286,7 +313,7 @@ mod test {
         types::Signature,
     };
 
-    use itertools::Itertools as _;
+    use hugr_core::hugr::internal::{HugrInternals, PortgraphNodeMap};
     use petgraph::visit::{Topo, Walker as _};
     use rstest::rstest;
     use tket::extension::{
@@ -294,10 +321,7 @@ mod test {
         guppy::{DROP_OP_NAME, GUPPY_EXTENSION},
     };
 
-    use crate::{
-        QSystemPass,
-        extension::{futures::FutureOpDef, qsystem::QSystemOp},
-    };
+    use crate::extension::{futures::FutureOpDef, qsystem::QSystemOp};
 
     #[rstest]
     #[case(false)]
@@ -312,9 +336,10 @@ mod test {
 
         let (mut hugr, [call_node, h_node, f_node, rx_node, main_node]) = {
             let mut builder = mb
-                .define_function(
+                .define_function_vis(
                     "main",
-                    Signature::new(qb_t(), vec![opaque_bool_type(), opaque_bool_type()]),
+                    Signature::new(vec![qb_t()], vec![opaque_bool_type(), opaque_bool_type()]),
+                    Visibility::Public,
                 )
                 .unwrap();
             let [qb] = builder.input_wires_arr();
@@ -363,18 +388,23 @@ mod test {
         }
         QSystemPass::default().run(&mut hugr).unwrap();
 
-        let topo_sorted = Topo::new(&hugr.as_petgraph())
-            .iter(&hugr.as_petgraph())
-            .collect_vec();
+        let (pg, node_map) = hugr.region_portgraph(main_node);
+        let topo_sorted = Topo::new(&pg).iter(&pg).collect_vec();
 
-        let get_pos = |x| topo_sorted.iter().position(|&y| y == x).unwrap();
+        let get_pos = |x| {
+            topo_sorted
+                .iter()
+                .position(|&y| y == node_map.to_portgraph(x))
+                .unwrap()
+        };
         assert!(get_pos(h_node) < get_pos(f_node));
         assert!(get_pos(h_node) < get_pos(call_node));
         assert!(get_pos(rx_node) < get_pos(call_node));
 
-        for &n in topo_sorted
+        for n in topo_sorted
             .iter()
-            .filter(|&&n| FutureOpDef::try_from(hugr.get_optype(n)) == Ok(FutureOpDef::Read))
+            .map(|&pg_n| node_map.from_portgraph(pg_n))
+            .filter(|&n| FutureOpDef::try_from(hugr.get_optype(n)) == Ok(FutureOpDef::Read))
         {
             assert!(get_pos(call_node) < get_pos(n));
         }
@@ -384,7 +414,7 @@ mod test {
     fn hide_funcs() {
         let orig = {
             let arr_t = || array_type(4, opaque_bool_type());
-            let mut dfb = FunctionBuilder::new("main", Signature::new_endo(arr_t())).unwrap();
+            let mut dfb = FunctionBuilder::new("main", Signature::new_endo(vec![arr_t()])).unwrap();
             let [arr] = dfb.input_wires_arr();
             let (arr1, arr2) = dfb.add_array_clone(opaque_bool_type(), 4, arr).unwrap();
             let dop = GUPPY_EXTENSION.get_op(&DROP_OP_NAME).unwrap();
@@ -426,52 +456,5 @@ mod test {
             hugr_public.children(hugr_public.module_root()).count()
         );
         assert_eq!(hugr.num_nodes(), hugr_public.num_nodes());
-    }
-
-    #[cfg(feature = "llvm")]
-    #[test]
-    // TODO: We still want to test this as long as deserialized hugrs are allowed to contain Value::Function
-    // Once that variant is removed, we can remove this test.
-    #[expect(deprecated)]
-    fn const_function() {
-        use hugr::builder::{Container, DFGBuilder, DataflowHugr, ModuleBuilder};
-        use hugr::ops::{CallIndirect, Value};
-
-        let qb_sig: Signature = Signature::new_endo(qb_t());
-        let mut hugr = {
-            let mut builder = ModuleBuilder::new();
-            let val = Value::function({
-                let builder = DFGBuilder::new(Signature::new_endo(qb_t())).unwrap();
-                let [r] = builder.input_wires_arr();
-                builder.finish_hugr_with_outputs([r]).unwrap()
-            })
-            .unwrap();
-            let const_node = builder.add_constant(val);
-            {
-                let mut builder = builder.define_function("main", qb_sig.clone()).unwrap();
-                let [i] = builder.input_wires_arr();
-                let fun = builder.load_const(&const_node);
-                let [r] = builder
-                    .add_dataflow_op(
-                        CallIndirect {
-                            signature: qb_sig.clone(),
-                        },
-                        [fun, i],
-                    )
-                    .unwrap()
-                    .outputs_arr();
-                builder.finish_with_outputs([r]).unwrap();
-            };
-            builder.finish_hugr().unwrap()
-        };
-
-        QSystemPass::default().run(&mut hugr).unwrap();
-
-        // QSystemPass should have removed the const function
-        for n in hugr.descendants(hugr.module_root()) {
-            if hugr.get_optype(n).as_const().is_some() {
-                panic!("Const function is still there!");
-            }
-        }
     }
 }

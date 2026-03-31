@@ -26,8 +26,9 @@ env:
 
   # different strings for install action and feature name
   # adapted from https://github.com/TheDan64/inkwell/blob/master/.github/workflows/test.yml
-  LLVM_VERSION: "14.0"
-  LLVM_FEATURE_NAME: "14-0"
+  LLVM_MAIN_VERSION: "21"
+  LLVM_VERSION: "21.1"
+  LLVM_FEATURE_NAME: "21-1"
 
   # Path to the cached tket-c-api library
   # When this envvar is set, the `./.github/actions/tket-c-api` action **must** be run to fetch the artifacts
@@ -76,9 +77,11 @@ jobs:
       - name: Check formatting
         run: cargo fmt -- --check
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@v2
-        with:
-          version: ${{ env.LLVM_VERSION }}
+        run: |
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo add-apt-repository 'deb http://apt.llvm.org/noble/   llvm-toolchain-noble-${{ env.LLVM_MAIN_VERSION }}  main'
+          sudo apt update
+          sudo apt install llvm-${{ env.LLVM_MAIN_VERSION }} libpolly-${{ env.LLVM_MAIN_VERSION }}-dev
       - name: Run clippy
         run: cargo clippy --all-targets --all-features --workspace -- -D warnings
       - name: Build docs
@@ -102,10 +105,11 @@ jobs:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@v2
-        with:
-          version: ${{ env.LLVM_VERSION }}
-          directory: ${{ runner.temp }}/llvm
+        run: |
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo add-apt-repository 'deb http://apt.llvm.org/noble/   llvm-toolchain-noble-${{ env.LLVM_MAIN_VERSION }}  main'
+          sudo apt update
+          sudo apt install llvm-${{ env.LLVM_MAIN_VERSION }} libpolly-${{ env.LLVM_MAIN_VERSION }}-dev
       - name: Install tket-c-api library
         uses: ./.github/actions/tket-c-api
         with:
@@ -142,7 +146,9 @@ jobs:
       - name: Install cargo-codspeed
         run: cargo binstall cargo-codspeed --force
       - name: Override criterion with the CodSpeed harness
-        run: cargo add --dev codspeed-criterion-compat --rename criterion --package tket
+        run: |
+          cargo add --dev codspeed-criterion-compat --rename criterion --package tket
+          cargo add --dev codspeed-criterion-compat --rename criterion --package hugr-passes
       - name: Build benchmarks
         run: cargo codspeed build --profile bench --features portmatching,binary-eccs,rewrite-tracing
       - name: Run benchmarks
@@ -173,9 +179,9 @@ jobs:
           install-path: ${{ env.TKET_C_API_PATH }}
       - uses: taiki-e/install-action@nextest
       - name: Build with no features
-        run: cargo nextest r --verbose -p tket -p tket-py -p tket-qsystem --no-default-features --no-run
+        run: cargo nextest r --verbose -p tket -p tket-py -p tket-qsystem -p hugr-passes --no-default-features --no-run
       - name: Tests with no features
-        run: cargo nextest r --verbose -p tket -p tket-py -p tket-qsystem --no-default-features
+        run: cargo nextest r --verbose -p tket -p tket-py -p tket-qsystem -p hugr-passes --no-default-features
 
   # Run tests on Rust stable
   tests-rs-stable-all-features:
@@ -193,9 +199,11 @@ jobs:
       - name: Configure default rust toolchain
         run: rustup override set ${{steps.toolchain.outputs.name}}
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@v2
-        with:
-          version: ${{ env.LLVM_VERSION }}
+        run: |
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo add-apt-repository 'deb http://apt.llvm.org/noble/   llvm-toolchain-noble-${{ env.LLVM_MAIN_VERSION }}  main'
+          sudo apt update
+          sudo apt install llvm-${{ env.LLVM_MAIN_VERSION }} libpolly-${{ env.LLVM_MAIN_VERSION }}-dev
       - name: Install tket-c-api library
         uses: ./.github/actions/tket-c-api
         with:
@@ -227,9 +235,11 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@v2
-        with:
-          version: ${{ env.LLVM_VERSION }}
+        run: |
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo add-apt-repository 'deb http://apt.llvm.org/noble/   llvm-toolchain-noble-${{ env.LLVM_MAIN_VERSION }}  main'
+          sudo apt update
+          sudo apt install llvm-${{ env.LLVM_MAIN_VERSION }} libpolly-${{ env.LLVM_MAIN_VERSION }}-dev
       - name: Install tket-c-api library
         uses: ./.github/actions/tket-c-api
         with:
@@ -261,9 +271,11 @@ jobs:
           toolchain: "nightly"
           components: llvm-tools-preview
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@v2
-        with:
-          version: ${{ env.LLVM_VERSION }}
+        run: |
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo add-apt-repository 'deb http://apt.llvm.org/noble/   llvm-toolchain-noble-${{ env.LLVM_MAIN_VERSION }}  main'
+          sudo apt update
+          sudo apt install llvm-${{ env.LLVM_MAIN_VERSION }} libpolly-${{ env.LLVM_MAIN_VERSION }}-dev
       - name: Install tket-c-api library
         uses: ./.github/actions/tket-c-api
         with:
@@ -278,7 +290,7 @@ jobs:
       - name: Generate coverage report
         run: cargo llvm-cov --all-features report --codecov --output-path coverage.json
       - name: Upload coverage to codecov.io
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: coverage.json
           name: rust
@@ -299,7 +311,7 @@ jobs:
         id: toolchain
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.89"
+          toolchain: "1.91"
       - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@master
         with:
@@ -308,9 +320,11 @@ jobs:
       - name: Configure default rust toolchain
         run: rustup override set ${{steps.toolchain.outputs.name}}
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@v2
-        with:
-          version: ${{ env.LLVM_VERSION }}
+        run: |
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo add-apt-repository 'deb http://apt.llvm.org/noble/   llvm-toolchain-noble-${{ env.LLVM_MAIN_VERSION }}  main'
+          sudo apt update
+          sudo apt install llvm-${{ env.LLVM_MAIN_VERSION }} libpolly-${{ env.LLVM_MAIN_VERSION }}-dev
       - name: Install tket-c-api library
         uses: ./.github/actions/tket-c-api
         with:
@@ -322,7 +336,7 @@ jobs:
           cargo binstall cargo-minimal-versions --force
       - name: Pin transitive dependencies not compatible with our MSRV
         # Add new dependencies as needed if the check fails due to
-        # "package `XXX` cannot be built because it requires rustc YYY or newer, while the currently active rustc version is 1.89.0"
+        # "package `XXX` cannot be built because it requires rustc YYY or newer, while the currently active rustc version is 1.91.0"
         run: |
           rm Cargo.lock
           # cargo add -p tket insta@2.4.1
@@ -365,7 +379,7 @@ jobs:
         run: uv run --no-project pytest --cov=./ --cov-report=xml ${{ env.PKGS }}
       - name: Upload python coverage to codecov.io
         if: github.event_name != 'merge_group'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: ./coverage.xml
           # Ensures we only upload this file
@@ -391,16 +405,22 @@ jobs:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@v2
+        run: |
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo add-apt-repository 'deb http://apt.llvm.org/noble/   llvm-toolchain-noble-${{ env.LLVM_MAIN_VERSION }}  main'
+          sudo apt update
+          sudo apt install llvm-${{ env.LLVM_MAIN_VERSION }} libpolly-${{ env.LLVM_MAIN_VERSION }}-dev
+      - name: Install tket-c-api library
+        uses: ./.github/actions/tket-c-api
         with:
-          version: ${{ env.LLVM_VERSION }}
+          install-path: ${{ env.TKET_C_API_PATH }}
       - name: Install Python ${{ env.PYTHON_LOWEST }}
         run: uv python install ${{ env.PYTHON_LOWEST }}
       - name: Run qis-compiler tests
         run: uv run --python ${{ env.PYTHON_LOWEST }} --exact --package selene_hugr_qis_compiler pytest --cov=./ --cov-report=xml qis-compiler
       - name: Upload python coverage to codecov.io
         if: github.event_name != 'merge_group'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: ./coverage.xml
           # Ensures we only upload this file
@@ -422,6 +442,10 @@ jobs:
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
       - uses: extractions/setup-just@v3
+      - name: Install tket-c-api library
+        uses: ./.github/actions/tket-c-api
+        with:
+          install-path: ${{ env.TKET_C_API_PATH }}
       - name: Generate the updated definitions
         run: just gen-extensions
       - name: Check if the declarations are up to date

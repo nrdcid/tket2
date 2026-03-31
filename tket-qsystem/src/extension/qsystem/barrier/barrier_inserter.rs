@@ -5,7 +5,6 @@ use hugr::std_extensions::collections::array::ArrayKind;
 use hugr::types::{Signature, Type};
 use hugr::{
     Hugr, HugrView, IncomingPort, Node, OutgoingPort, Wire,
-    algorithms::replace_types::ReplaceTypes,
     builder::{DFGBuilder, Dataflow},
     extension::prelude::Barrier,
     hugr::{
@@ -13,13 +12,14 @@ use hugr::{
         patch::{PatchHugrMut, insert_cut::InsertCut},
     },
 };
-use tket::passes::unpack_container::type_unpack::{TypeUnpacker, is_array_of};
+use hugr_passes::replace_types::ReplaceTypes;
+use tket::passes::utils::unpack_container::type_unpack::{TypeUnpacker, is_array_of};
 
 use crate::extension::qsystem::{
     LowerTk2Error,
     barrier::wrapped_barrier::{WrappedBarrierBuilder, build_runtime_barrier_op},
 };
-use tket::passes::unpack_container::UnpackContainerBuilder;
+use tket::passes::utils::unpack_container::UnpackContainerBuilder;
 
 type Target = (Node, IncomingPort);
 
