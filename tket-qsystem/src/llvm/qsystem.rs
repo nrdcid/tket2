@@ -163,7 +163,6 @@ enum SolGateFunction {
     Rp,
     Rz,
     Rpp,
-    Rpg,
     Rxxyyzz,
 }
 
@@ -173,7 +172,6 @@ impl QSystemRuntimeFunction for SolGateFunction {
             SolGateFunction::Rp => "___rp",
             SolGateFunction::Rz => "___rz",
             SolGateFunction::Rpp => "___rpp",
-            SolGateFunction::Rpg => "___rpg",
             SolGateFunction::Rxxyyzz => "___rxxyyzz",
         }
     }
@@ -193,9 +191,6 @@ impl QSystemRuntimeFunction for SolGateFunction {
             SolGateFunction::Rp => iwc.void_type().fn_type(&[qubit, float, float], false),
             SolGateFunction::Rz => iwc.void_type().fn_type(&[qubit, float], false),
             SolGateFunction::Rpp => iwc
-                .void_type()
-                .fn_type(&[qubit, qubit, float, float], false),
-            SolGateFunction::Rpg => iwc
                 .void_type()
                 .fn_type(&[qubit, qubit, float, float], false),
             SolGateFunction::Rxxyyzz => iwc

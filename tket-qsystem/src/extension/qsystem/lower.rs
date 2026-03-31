@@ -87,7 +87,6 @@ enum ReplaceOps {
 ///
 /// # Errors
 /// Returns an error if the replacement fails.
-
 // TODO: consider a rename - tk2 can mean both 'tket2' and the TK2 gate.
 pub fn lower_tk2_op(
     platform: QSystemPlatform,
