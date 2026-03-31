@@ -301,9 +301,6 @@ impl<PCG: PreludeCodegen> QSystemCodegenExtension<PCG> {
             (QSystemPlatform::Helios, QSystemOp::PhasedXX) => {
                 bail!("PhasedXX not implemented for Helios platform")
             }
-            (QSystemPlatform::Helios, QSystemOp::TwinPhasedX) => {
-                bail!("TwinPhasedX not implemented for Helios platform")
-            }
             (QSystemPlatform::Helios, QSystemOp::Tk2) => {
                 bail!("Tk2 not implemented for Helios platform")
             }
@@ -329,13 +326,6 @@ impl<PCG: PreludeCodegen> QSystemCodegenExtension<PCG> {
                 context,
                 args,
                 RuntimeFunction::SolGate(SolGateFunction::Rpp),
-                &[0, 1, 2, 3],
-                &[0, 1],
-            ),
-            (QSystemPlatform::Sol, QSystemOp::TwinPhasedX) => self.emit_impl(
-                context,
-                args,
-                RuntimeFunction::SolGate(SolGateFunction::Rpg),
                 &[0, 1, 2, 3],
                 &[0, 1],
             ),
