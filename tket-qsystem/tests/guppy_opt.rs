@@ -1,4 +1,5 @@
 //! Tests optimizing Guppy-generated programs.
+#![allow(deprecated)]
 
 use rayon::iter::ParallelIterator;
 use smol_str::SmolStr;

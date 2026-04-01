@@ -15,6 +15,10 @@ use hugr_core::ops::{ExtensionOp, Value};
 
 /// Clients of the dataflow framework (particular analyses, such as constant folding)
 /// must implement this trait (including providing an appropriate domain type `V`).
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub trait DFContext<V>: ConstLoader<V> {
     /// Given lattice values for each input, update lattice values for the (dataflow) outputs.
     /// For extension ops only, excluding [`MakeTuple`] and [`UnpackTuple`] which are handled automatically.
@@ -38,6 +42,10 @@ pub trait DFContext<V>: ConstLoader<V> {
 /// (perhaps deeply nested within [`Value::Sum`]s) within a node `N`
 /// that is a [Const](hugr_core::ops::Const).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum ConstLocation<'a, N> {
     /// The specified-index'th field of the [`Value::Sum`] constant identified by the RHS
     Field(usize, &'a ConstLocation<'a, N>),
@@ -55,6 +63,10 @@ impl<N> From<N> for ConstLocation<'_, N> {
 ///
 /// Implementors will likely want to override [`Self::value_from_opaque`]:
 /// the default is "correct" but maximally conservative (minimally informative).
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub trait ConstLoader<V> {
     /// The type of nodes in the Hugr.
     type Node;
@@ -71,6 +83,10 @@ pub trait ConstLoader<V> {
 /// Traverses [Sum](Value::Sum) constants to their [`Value::Extension`] leaves,
 /// converts these using [`ConstLoader::value_from_opaque`],
 /// and builds nested [`PartialValue::new_variant`] to represent the structure.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub fn partial_from_const<'a, V, CL: ConstLoader<V>>(
     cl: &CL,
     loc: impl Into<ConstLocation<'a, CL::Node>>,
@@ -96,6 +112,10 @@ where
 
 /// A row of inputs to a node contains bottom (can't happen, the node
 /// can't execute) if any element [`contains_bottom`](PartialValue::contains_bottom).
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub fn row_contains_bottom<'a, V: 'a, N: 'a>(
     elements: impl IntoIterator<Item = &'a PartialValue<V, N>>,
 ) -> bool {

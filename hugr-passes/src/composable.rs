@@ -22,6 +22,10 @@ use itertools::Either;
 /// idempotent (i.e. such that after running a pass, rerunning it immediately has
 /// no further effect). However this is *not* a requirement, e.g. a sequence of
 /// idempotent passes created by [ComposablePass::then] may not be idempotent itself.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub trait ComposablePass<H: HugrMut>: WithScope + Sized {
     /// Error thrown by this pass.
     type Error: Error;
@@ -93,6 +97,10 @@ pub trait ComposablePass<H: HugrMut>: WithScope + Sized {
 
 /// Extension trait for adding a `with_scope` method to a `ComposablePass` that
 /// does not require instantiating the `H` generic parameter.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub trait WithScope {
     /// Set the scope configuration used to run the pass.
     ///
@@ -115,6 +123,10 @@ pub trait WithScope {
 
 /// Trait for combining the error types from two different passes
 /// into a single error.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub trait ErrorCombiner<A, B>: Error {
     /// Create a combined error from the first pass's error.
     fn from_first(a: A) -> Self;
@@ -183,6 +195,10 @@ impl<P: ComposablePass<H>, H: HugrMut, E: Error, F: Fn(P::Error) -> E> WithScope
 
 /// Error from a [`ValidatingPass`]
 #[derive(thiserror::Error, Debug)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum ValidatePassError<N, E>
 where
     N: HugrNode + 'static,
@@ -218,6 +234,10 @@ impl<N: HugrNode, E> From<E> for ValidatePassError<N, E> {
 
 /// Runs an underlying pass, but with validation of the Hugr
 /// both before and afterwards.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct ValidatingPass<P, H>(P, PhantomData<H>);
 
 impl<P: ComposablePass<H>, H: HugrMut> ValidatingPass<P, H> {
@@ -267,6 +287,10 @@ impl<P: ComposablePass<H>, H: HugrMut> WithScope for ValidatingPass<P, H> {
 /// [`ComposablePass`] that executes a first pass that returns a `bool`
 /// result; and then, if-and-only-if that first result was true,
 /// executes a second pass
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct IfThen<E, H, A, B>(A, B, PhantomData<(E, H)>);
 
 impl<

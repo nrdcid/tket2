@@ -2,6 +2,9 @@
 
 # hugr-passes
 
+> [!WARNING]
+> This crate is deprecated. Use [`tket::passes`](https://docs.rs/tket/latest/tket/passes/index.html) instead.
+
 [![build_status][]](https://github.com/quantinuum/tket2/actions)
 [![crates][]](https://crates.io/crates/hugr-passes)
 [![msrv][]](https://github.com/quantinuum/tket2)

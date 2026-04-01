@@ -25,6 +25,10 @@ use itertools::{Either, Itertools};
 // This enum should be kept in sync with the `PassScope` enum in `hugr-py`.
 #[derive(Debug, Clone, PartialEq, Eq, derive_more::From, Hash, derive_more::Display)]
 #[non_exhaustive]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum PassScope {
     /// Run the pass on the entrypoint region.
     ///
@@ -77,6 +81,10 @@ pub enum PassScope {
 /// [ExitBlock]: OpType::ExitBlock
 /// [Module]: OpType::Module
 #[derive(Debug, Clone, PartialEq, Eq, Default, Hash, derive_more::Display)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum Preserve {
     /// Optimization passes must preserve behaviour and interface of every
     /// module child, as well as the entrypoint.
@@ -116,6 +124,10 @@ impl Default for PassScope {
 
 /// Whether a pass may modify a particular node
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum InScope {
     /// The pass may modify the node arbitrarily, including changing its interface,
     /// behaviour, and/or removing it altogether

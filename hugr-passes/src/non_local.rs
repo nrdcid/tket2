@@ -20,6 +20,10 @@ use localize::ExtraSourceReqs;
 ///
 /// [DataflowBlock]: hugr_core::ops::DataflowBlock
 #[derive(Clone, Debug, Default, Hash)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct LocalizeEdges {
     scope: PassScope,
 }
@@ -27,6 +31,10 @@ pub struct LocalizeEdges {
 /// Error from [LocalizeEdges] or [remove_nonlocal_edges]
 #[derive(derive_more::Error, derive_more::Display, derive_more::From, Debug, PartialEq)]
 #[non_exhaustive]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum LocalizeEdgesError {}
 
 impl<H: HugrMut> ComposablePass<H> for LocalizeEdges {
@@ -91,6 +99,10 @@ impl WithScope for LocalizeEdges {
 /// An error from [ensure_no_nonlocal_edges]
 #[derive(Clone, derive_more::Error, derive_more::Display, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum FindNonLocalEdgesError<N> {
     /// Some nonlocal edges were found
     #[display("Found {} nonlocal edges", _0.len())]
@@ -99,7 +111,10 @@ pub enum FindNonLocalEdgesError<N> {
 }
 
 /// Verifies that there are no non local value edges in the Hugr beneath the entrypoint.
-#[deprecated(note = "Use LocalizeEdges::check_no_nonlocal_edges", since = "0.26.0")]
+#[deprecated(
+    note = "Use tket::passes::LocalizeEdgesPass::check_no_nonlocal_edges",
+    since = "0.26.2"
+)]
 pub fn ensure_no_nonlocal_edges<H: HugrView>(
     hugr: &H,
 ) -> Result<(), FindNonLocalEdgesError<H::Node>> {
@@ -153,6 +168,10 @@ fn just_types<'a, X: 'a>(v: impl IntoIterator<Item = &'a (X, Type)>) -> impl Ite
 }
 
 /// Runs a [LocalizeEdges] pass on the entrypoint subtree of a hugr.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub fn remove_nonlocal_edges<H: HugrMut>(hugr: &mut H) -> Result<(), LocalizeEdgesError> {
     LocalizeEdges::new_for_hugr(hugr).run(hugr)
 }

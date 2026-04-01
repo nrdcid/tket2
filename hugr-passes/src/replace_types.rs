@@ -41,6 +41,10 @@ pub use linearize::{CallbackHandler, DelegatingLinearizer, LinearizeError, Linea
 /// [`DataflowParent`]: hugr_core::ops::OpTag::DataflowParent
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum NodeTemplate {
     /// A single node - so if replacing an existing node, change only the op.
     ///
@@ -315,6 +319,10 @@ fn call<H: HugrView<Node = Node>>(
 /// [ReplaceTypes::replace_type_opts] or [ReplaceTypes::replace_parametrized_type_opts].
 /// Otherwise (the default), replacements are inserted as given (without further processing).
 #[derive(Clone, Default, PartialEq, Eq)] // More derives might inhibit future extension
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct ReplacementOptions {
     process_recursive: bool,
     linearize_unchanged: bool,
@@ -367,6 +375,10 @@ impl ReplacementOptions {
 ///
 /// [monomorphization]: crate::MonomorphizePass
 #[derive(Clone)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct ReplaceTypes {
     type_map: HashMap<CustomType, (Type, ReplacementOptions)>,
     param_types:
@@ -436,6 +448,10 @@ impl TypeTransformer for ReplaceTypes {
 #[derive(Debug, Error, PartialEq)]
 #[non_exhaustive]
 #[expect(missing_docs)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum ReplaceTypesError {
     #[error(transparent)]
     SignatureError(#[from] SignatureError),
@@ -943,6 +959,10 @@ impl WithScope for ReplaceTypes {
     }
 }
 
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub mod handlers;
 
 #[derive(Clone, Hash, PartialEq, Eq)]

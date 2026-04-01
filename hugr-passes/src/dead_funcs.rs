@@ -16,6 +16,10 @@ use crate::{ComposablePass, PassScope};
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 /// Errors produced by [`RemoveDeadFuncsPass`].
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum RemoveDeadFuncsError<N = Node> {
     /// The specified entry point is not a `FuncDefn` node
     #[error(
@@ -48,6 +52,10 @@ fn reachable_funcs<'a, H: HugrView>(
 
 #[derive(Debug, Clone, Default)]
 /// A configuration for the Dead Function Removal pass.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct RemoveDeadFuncsPass {
     scope: PassScope,
 }

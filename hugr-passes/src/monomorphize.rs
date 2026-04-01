@@ -175,6 +175,10 @@ fn instantiate(
 /// from parent function names and concrete type args) of new functions are unique
 /// whenever the names of their parents are unique, but this is not guaranteed.
 #[derive(Debug, Default, Clone)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct MonomorphizePass {
     scope: PassScope,
 }
@@ -253,6 +257,10 @@ fn write_type_arg_str(arg: &TypeArg, f: &mut std::fmt::Formatter<'_>) -> std::fm
 ///    of inner type.
 ///  - For all `TypeArg` Constructors a short prefix (e.g. `t` for type)
 ///    is used as "t({arg})" for the string representation of that arg.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub fn mangle_name(name: &str, type_args: impl AsRef<[TypeArg]>) -> String {
     let name = escape_dollar(name);
     format!("${name}${}", TypeArgsSeq(type_args.as_ref()))

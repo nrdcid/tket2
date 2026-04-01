@@ -8,6 +8,10 @@ use super::{
 
 /// Results of a dataflow analysis, packaged with the Hugr for easy inspection.
 /// Methods allow inspection, specifically [`read_out_wire`](Self::read_out_wire).
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct AnalysisResults<V: AbstractValue, H: HugrView> {
     pub(super) hugr: H,
     pub(super) in_wire_value: Vec<InWire<V, H::Node>>,
@@ -103,6 +107,10 @@ impl<V: AbstractValue, H: HugrView> AnalysisResults<V, H> {
 
 /// Tells whether a loop iterates (never, always, sometimes)
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum TailLoopTermination {
     /// The loop never exits (is an infinite loop); no value is ever
     /// returned out of the loop. (aka, Bottom.)

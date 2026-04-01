@@ -23,6 +23,10 @@ use crate::{ComposablePass, PassScope};
 /// where `e` and `n` are the number of edges and nodes in the region,
 /// respectively.
 #[derive(Debug, Default, Clone)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct RedundantOrderEdgesPass {
     /// On what part of the Hugr to run
     scope: PassScope,
@@ -30,6 +34,10 @@ pub struct RedundantOrderEdgesPass {
 
 /// Result type for the redundant order edges pass.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, derive_more::AddAssign)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct RedundantOrderEdgesResult {
     /// Number of edges removed.
     pub edges_removed: usize,

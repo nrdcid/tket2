@@ -32,6 +32,10 @@ use crate::{ComposablePass, PassScope};
 /// Ignores pack/unpack nodes with order edges.
 // TODO: Supporting those requires updating the `SiblingSubgraph` implementation. See <https://github.com/CQCL/hugr/issues/1974>.
 #[derive(Debug, Clone, Default)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct UntuplePass {
     scope: PassScope,
 }
@@ -39,6 +43,10 @@ pub struct UntuplePass {
 #[derive(Debug, derive_more::Display, derive_more::Error, derive_more::From)]
 #[non_exhaustive]
 /// Errors produced by [`UntuplePass`].
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum UntupleError {
     /// Rewriting the circuit failed.
     RewriteError(SimpleReplacementError),
@@ -46,6 +54,10 @@ pub enum UntupleError {
 
 /// Result type for the untuple pass.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct UntupleResult {
     /// Number of `MakeTuple` rewrites applied.
     pub rewrites_applied: usize,

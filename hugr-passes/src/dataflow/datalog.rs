@@ -29,6 +29,10 @@ type NodeOutputs<V, N> = Vec<(OutgoingPort, PV<V, N>)>;
 ///    [`Self::prepopulate_inputs`] can be used on each externally-callable
 ///    [`FuncDefn`](OpType::FuncDefn) to set all inputs to [`PartialValue::Top`].
 /// 3. Call [`Self::run`] to produce [`AnalysisResults`]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct Machine<H: HugrView, V: AbstractValue> {
     hugr: H,
     in_wire_proto: HashMap<H::Node, NodeInputs<V, H::Node>>,

@@ -12,6 +12,10 @@ use super::row_contains_bottom;
 
 /// Trait for an underlying domain of abstract values which can form the *elements* of a
 /// [`PartialValue`] and thus be used in dataflow analysis.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub trait AbstractValue: Clone + std::fmt::Debug + PartialEq + Eq + Hash {
     /// Computes the join of two values (i.e. towards `Top``), if this is representable
     /// within the underlying domain. Return the new value, and whether this is different from
@@ -40,6 +44,10 @@ pub trait AbstractValue: Clone + std::fmt::Debug + PartialEq + Eq + Hash {
 /// Represents a sum with a single/known tag, abstracted over the representation of the elements.
 /// (Identical to [Sum](hugr_core::ops::constant::Sum) except for the type abstraction.)
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct Sum<V> {
     /// The tag index of the variant.
     pub tag: usize,
@@ -54,6 +62,10 @@ pub struct Sum<V> {
 /// The output of an [`LoadFunction`](hugr_core::ops::LoadFunction) - a "pointer"
 /// to a function at a specific node, instantiated with the provided type-args.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct LoadedFunction<N> {
     /// The [FuncDefn](hugr_core::ops::FuncDefn) or `FuncDecl`` that was loaded
     pub func_node: N,
@@ -64,6 +76,10 @@ pub struct LoadedFunction<N> {
 /// A representation of a value of [`SumType`], that may have one or more possible tags,
 /// with a [`PartialValue`] representation of each element-value of each possible tag.
 #[derive(PartialEq, Clone, Eq)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct PartialSum<V, N = Node>(pub HashMap<usize, Vec<PartialValue<V, N>>>);
 
 impl<V, N> PartialSum<V, N> {
@@ -176,6 +192,10 @@ impl<V: AbstractValue, N: PartialEq + PartialOrd> PartialSum<V, N> {
 ///
 /// `V` is the type of [`AbstractValue`] from which `Self` can (fallibly) be constructed,
 /// `N` is the type of [`HugrNode`](hugr_core::core::HugrNode) for function pointers
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub trait AsConcrete<V, N>: Sized {
     /// Kind of error raised when creating `Self` from a value `V`, see [`Self::from_value`]
     type ValErr: std::error::Error;
@@ -235,6 +255,10 @@ impl<V: AbstractValue, N: std::fmt::Debug> PartialSum<V, N> {
 /// An error converting a [`PartialValue`] or [`PartialSum`] into a concrete value type
 /// via [`PartialValue::try_into_concrete`] or [`PartialSum::try_into_sum`]
 #[derive(Clone, Debug, PartialEq, Eq, Error)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum ExtractValueError<V, N, VE, SE> {
     #[error("PartialSum value had multiple possible tags: {0}")]
     MultipleVariants(PartialSum<V, N>),
@@ -313,6 +337,10 @@ impl<V: Hash, N: Hash> Hash for PartialSum<V, N> {
 /// for use in dataflow analysis, including that an instance may be a [`PartialSum`]
 /// of values of the underlying representation
 #[derive(PartialEq, Clone, Eq, Hash, Debug)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum PartialValue<V, N = Node> {
     /// No possibilities known (so far)
     Bottom,

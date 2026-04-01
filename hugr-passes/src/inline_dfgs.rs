@@ -14,6 +14,10 @@ use crate::{ComposablePass, PassScope};
 ///
 /// See [InlineDFG] for a rewrite to inline single DFGs.
 #[derive(Debug, Default, Clone)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct InlineDFGsPass {
     scope: PassScope,
 }

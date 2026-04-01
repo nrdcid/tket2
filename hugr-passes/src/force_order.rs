@@ -33,6 +33,10 @@ use petgraph::{
 /// there is no path from `n2` to `n1` (otherwise this would invalidate `hugr`).
 /// Nodes of equal rank will be ordered arbitrarily, although that arbitrary
 /// order is deterministic.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub fn force_order<H: HugrMut<Node = Node>>(
     hugr: &mut H,
     root: Node,
@@ -43,6 +47,10 @@ pub fn force_order<H: HugrMut<Node = Node>>(
 
 /// As [`force_order`], but allows a generic [Ord] choice for the result of the
 /// `rank` function.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub fn force_order_by_key<H: HugrMut<Node = Node>, K: Ord>(
     hugr: &mut H,
     root: Node,

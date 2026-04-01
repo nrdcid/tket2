@@ -1,4 +1,5 @@
 //! The compiler for HUGR to QIS
+#![allow(deprecated)]
 pub mod array;
 
 use anyhow::{Result, anyhow};

@@ -30,6 +30,10 @@ use super::{NodeTemplate, ParametricType};
 ///
 /// [monomorphization]: crate::MonomorphizePass
 /// [Copyable]: hugr_core::types::TypeBound::Copyable
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub trait Linearizer {
     /// Insert copy or discard operations (as appropriate) enough to wire `src`
     /// up to all `targets`.
@@ -108,6 +112,10 @@ pub trait Linearizer {
 /// type-specific callbacks, and by  composing them in order to handle compound types
 /// such as [`TypeEnum::Sum`]s.
 #[derive(Clone)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct DelegatingLinearizer {
     // Keyed by lowered type, as only needed when there is an op outputting such
     copy_discard: HashMap<CustomType, (NodeTemplate, NodeTemplate)>,
@@ -137,11 +145,19 @@ impl Default for DelegatingLinearizer {
 /// handling collection types can use it to generate copy/discards of elements.
 // (Note, this is its own type just to give a bit of room for future expansion,
 // rather than passing a &DelegatingLinearizer directly)
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct CallbackHandler<'a>(&'a DelegatingLinearizer);
 
 #[derive(Clone, Debug, thiserror::Error, PartialEq)]
 #[expect(missing_docs)]
 #[non_exhaustive]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum LinearizeError {
     #[error("Need copy/discard op for {_0}")]
     NeedCopyDiscard(Box<Type>),

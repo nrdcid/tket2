@@ -34,6 +34,10 @@ use super::{
 /// Handler for [`ListValue`] constants that updates the element type and
 /// recursively [`ReplaceTypes::change_value`]s the elements of the list.
 /// Included in [`ReplaceTypes::default`].
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub fn list_const(
     val: &OpaqueValue,
     repl: &ReplaceTypes,
@@ -57,6 +61,10 @@ pub fn list_const(
 /// Handler for [`GenericArrayValue`] constants that recursively
 /// [`ReplaceTypes::change_value`]s the elements of the list.
 /// Included in [`ReplaceTypes::default`].
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub fn generic_array_const<AK: ArrayKind>(
     val: &OpaqueValue,
     repl: &ReplaceTypes,
@@ -85,6 +93,10 @@ where
 /// Included in [`ReplaceTypes::default`].
 ///
 /// [`ArrayValue`]: hugr_core::std_extensions::collections::array::ArrayValue
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub fn array_const(
     val: &OpaqueValue,
     repl: &ReplaceTypes,
@@ -103,6 +115,10 @@ pub(super) const MAKE_NONE_PREFIX: &str = "__mk_none";
 /// Handler for copying/discarding arrays if their elements have become linear.
 ///
 /// Generic over the concrete array implementation.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub fn linearize_generic_array<AK: ArrayKind>(
     args: &[TypeArg],
     num_outports: usize,
@@ -325,6 +341,10 @@ pub fn linearize_generic_array<AK: ArrayKind>(
 /// can be copied/discarded via the provided [`CallbackHandler`].
 ///
 /// This should be used when lowering a copyable type to an array.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub fn copy_discard_array(
     args: &[TypeArg],
     num_outports: usize,
@@ -372,6 +392,10 @@ pub fn copy_discard_array(
 /// can be copied/discarded via the provided [`CallbackHandler`].
 ///
 /// This should be used when lowering a copyable type to a borrow array.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub fn copy_discard_borrow_array(
     args: &[TypeArg],
     num_outports: usize,

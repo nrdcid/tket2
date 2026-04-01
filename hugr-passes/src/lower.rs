@@ -13,6 +13,10 @@ use thiserror::Error;
 /// New operations must match the signature of the old operations.
 ///
 /// Returns a list of the replaced nodes and their old operations.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub fn replace_many_ops<S: Into<OpType>>(
     hugr: &mut impl HugrMut<Node = Node>,
     mapping: impl Fn(&OpType) -> Option<S>,
@@ -38,6 +42,10 @@ pub fn replace_many_ops<S: Into<OpType>>(
 #[derive(Debug, Error)]
 #[error(transparent)]
 #[non_exhaustive]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum LowerError {
     /// Invalid subgraph.
     #[error("Subgraph formed by node is invalid: {0}")]
@@ -55,6 +63,10 @@ pub enum LowerError {
 /// # Errors
 ///
 /// Returns a [`LowerError`] if the lowered HUGR is invalid or if any rewrite fails.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub fn lower_ops(
     hugr: &mut impl HugrMut<Node = Node>,
     lowering: impl Fn(&OpType) -> Option<Hugr>,

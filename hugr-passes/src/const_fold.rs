@@ -1,6 +1,10 @@
 //! Constant-folding pass.
 //! An (example) use of the [dataflow analysis framework](super::dataflow).
 
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub mod value_handle;
 use std::{collections::HashMap, sync::Arc};
 use thiserror::Error;
@@ -24,6 +28,10 @@ use crate::dead_code::{DeadCodeElimError, DeadCodeElimPass, PreserveNode};
 
 #[derive(Debug, Clone, Default)]
 /// A configuration for the Constant Folding pass.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct ConstantFoldPass {
     allow_increase_termination: bool,
     scope: PassScope,
@@ -36,6 +44,10 @@ pub struct ConstantFoldPass {
 #[derive(Clone, Debug, Error, PartialEq)]
 #[non_exhaustive]
 /// Errors produced by [`ConstantFoldPass`].
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum ConstFoldError {
     /// Error raised when a Node is specified as an entry-point but
     /// is neither a dataflow parent, nor a [CFG](OpType::CFG), nor

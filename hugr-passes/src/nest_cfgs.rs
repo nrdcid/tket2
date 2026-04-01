@@ -60,6 +60,10 @@ use hugr_core::{Direction, Hugr, Node};
 /// algorithm to identify more regions than existed in the underlying CFG, without mutating the
 /// underlying CFG just for the analysis - the splitting (and/or merging) can then be performed by
 /// [`CfgNester::nest_sese_region`] only as necessary for regions actually nested.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub trait CfgNodeMap<T> {
     /// The unique entry node of the CFG. It may any n>=0 of incoming edges; we assume control arrives here from "outside".
     fn entry_node(&self) -> T;
@@ -73,6 +77,10 @@ pub trait CfgNodeMap<T> {
 
 /// Extension of [`CfgNodeMap`] to that can perform (mutable/destructive)
 /// nesting of regions detected.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub trait CfgNester<T>: CfgNodeMap<T> {
     /// Given an entry edge and exit edge defining a SESE region, mutates the
     /// Hugr such that all nodes between these edges are placed in a nested CFG.
@@ -84,6 +92,10 @@ pub trait CfgNester<T>: CfgNodeMap<T> {
 }
 
 /// Transforms a CFG into as much-nested a form as possible.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub fn transform_cfg_to_nested<T: Copy + Eq + Hash + std::fmt::Debug>(
     view: &mut impl CfgNester<T>,
 ) {
@@ -150,6 +162,10 @@ pub fn transform_cfg_to_nested<T: Copy + Eq + Hash + std::fmt::Debug>(
 ///
 /// This search may be expensive, although if it finds much/many CFGs,
 /// the analysis/transformation on them is likely to be more expensive still!
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub fn transform_all_cfgs(h: &mut Hugr) {
     let mut node_stack = Vec::from([h.entrypoint()]);
     while let Some(n) = node_stack.pop() {
@@ -212,6 +228,10 @@ fn cfg_edge<T: Copy + Clone + PartialEq + Eq + Hash>(s: T, d: EdgeDest<T>) -> Cf
 }
 
 /// A straightforward view of a Cfg as it appears in a Hugr
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct IdentityCfgMap<H: HugrView> {
     h: H,
     entry: H::Node,
@@ -276,6 +296,10 @@ impl<H: HugrMut<Node = Node>> CfgNester<H::Node> for IdentityCfgMap<H> {
 /// An error trying to get the blocks of a SESE (single-entry-single-exit) region
 #[derive(Clone, Debug, Error)]
 #[non_exhaustive]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum RegionBlocksError<T> {
     /// The specified exit edge did not exist in the CFG
     ExitEdgeNotPresent(T, T),
@@ -290,6 +314,10 @@ pub enum RegionBlocksError<T> {
 }
 
 /// Given entry and exit edges for a SESE region, identify all the blocks in it.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub fn region_blocks<T: Copy + Eq + Hash + std::fmt::Debug>(
     v: &impl CfgNodeMap<T>,
     entry_edge: (T, T),
@@ -451,6 +479,10 @@ impl<T: Copy + Clone + PartialEq + Eq + Hash> BracketList<T> {
 }
 
 /// Mutable state updated during traversal of the `UndirectedDFSTree` by the cycle equivalence algorithm.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct EdgeClassifier<T> {
     /// Edges we have marked as deleted, allowing constant-time deletion without searching `BracketList`
     deleted_backedges: HashSet<Bracket<T>>,

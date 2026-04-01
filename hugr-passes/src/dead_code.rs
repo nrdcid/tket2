@@ -11,6 +11,10 @@ use crate::{ComposablePass, PassScope};
 
 /// Configuration for Dead Code Elimination pass
 #[derive(Clone)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct DeadCodeElimPass<H: HugrView> {
     /// Nodes that are definitely needed - e.g. `FuncDefns`, but could be anything.
     /// Hugr Root is assumed to be an entry point even if not mentioned here.
@@ -56,10 +60,18 @@ impl<H: HugrView> Debug for DeadCodeElimPass<H> {
 
 /// Callback that identifies nodes that must be preserved even if their
 /// results are not used. For example, (the default) [`PreserveNode::default_for`].
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub type PreserveCallback<H> = dyn Fn(&H, <H as HugrInternals>::Node) -> PreserveNode;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 /// Signal that a node must be preserved even when its result is not used
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum PreserveNode {
     /// The node must be kept (nodes inside it may be removed)
     MustKeep,
@@ -90,6 +102,10 @@ impl PreserveNode {
 /// Errors from [DeadCodeElimPass]
 #[derive(Clone, Debug, thiserror::Error, PartialEq)]
 #[non_exhaustive]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum DeadCodeElimError<N: Display = Node> {
     /// A node specified to [DeadCodeElimPass::with_entry_points] was not found
     #[error("Node {_0} does not exist in the Hugr")]

@@ -1,4 +1,5 @@
 //! Passes for optimising circuits.
+#![allow(deprecated)]
 
 pub mod chunks;
 pub mod tket1;

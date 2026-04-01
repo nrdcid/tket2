@@ -10,6 +10,10 @@ use petgraph::visit::{self as pg, Walker};
 use std::hash::{Hash, Hasher};
 
 /// Hugr hashing utilities.
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub trait HugrHash: HugrView {
     /// Compute a hash for the entire HUGR structure.
     ///
@@ -164,6 +168,10 @@ fn dfg_hash_node<H: HugrView>(
 /// Errors that can occur while hashing a hugr.
 #[derive(Debug, Display, Clone, PartialEq, Eq, Error)]
 #[non_exhaustive]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum HashError {
     /// The hugr dfg contains a cycle.
     #[display("The hugr dfg contains a cycle.")]

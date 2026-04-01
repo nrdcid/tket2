@@ -1,4 +1,5 @@
 //! Benchmarks for the tket crate.
+#![allow(deprecated)]
 
 mod benchmarks;
 

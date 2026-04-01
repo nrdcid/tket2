@@ -32,6 +32,10 @@ use crate::{ComposablePass, PassScope};
 /// # Errors
 ///
 /// [NormalizeCFGError::NotCFG] If the entrypoint is not a CFG
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub fn merge_basic_blocks<H: HugrMut>(cfg: &mut H) -> Result<usize, NormalizeCFGError> {
     if !cfg.entrypoint_optype().is_cfg() {
         return Err(NormalizeCFGError::NotCFG(cfg.entrypoint_optype().tag()));
@@ -67,6 +71,10 @@ pub fn merge_basic_blocks<H: HugrMut>(cfg: &mut H) -> Result<usize, NormalizeCFG
 
 /// Errors from [normalize_cfg]
 #[derive(Clone, Debug, thiserror::Error, PartialEq, Eq)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum NormalizeCFGError {
     /// The requested node was not a CFG
     #[error("Requested node was not a CFG but {_0}")]
@@ -77,6 +85,10 @@ pub enum NormalizeCFGError {
 ///
 /// `N` is the type of the nodes in the Hugr.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum NormalizeCFGResult<N = Node> {
     /// The entire [`CFG`] was converted into a [`DFG`].
     ///
@@ -98,6 +110,10 @@ pub enum NormalizeCFGResult<N = Node> {
 
 /// A [ComposablePass] that normalizes CFGs (i.e. [normalize_cfg]) in a Hugr.
 #[derive(Clone, Debug, Default)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct NormalizeCFGPass {
     scope: PassScope,
 }
@@ -154,6 +170,10 @@ impl WithScope for NormalizeCFGPass {
 /// # Errors
 ///
 /// [NormalizeCFGError::NotCFG] If the entrypoint is not a CFG
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub fn normalize_cfg<H: HugrMut>(
     h: &mut H,
 ) -> Result<NormalizeCFGResult<H::Node>, NormalizeCFGError> {

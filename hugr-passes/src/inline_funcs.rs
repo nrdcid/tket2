@@ -10,6 +10,10 @@ use hugr_core::module_graph::{ModuleGraph, StaticNode};
 /// Error raised by [inline_acyclic]
 #[derive(Clone, Debug, thiserror::Error, PartialEq)]
 #[non_exhaustive]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum InlineFuncsError {}
 
 /// Inline (a subset of) [Call]s whose target [FuncDefn]s are not in cycles of the call
@@ -21,6 +25,10 @@ pub enum InlineFuncsError {}
 ///
 /// [Call]: hugr_core::ops::Call
 /// [FuncDefn]: hugr_core::ops::FuncDefn
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub fn inline_acyclic<H: HugrMut>(
     h: &mut H,
     call_predicate: impl Fn(&H, H::Node) -> bool,

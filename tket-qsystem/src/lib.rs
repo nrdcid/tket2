@@ -1,5 +1,6 @@
 //! Provides a preparation and validation workflow for Hugrs targeting
 //! Quantinuum H-series quantum computers.
+#![allow(deprecated)]
 
 #[cfg(feature = "cli")]
 pub mod cli;

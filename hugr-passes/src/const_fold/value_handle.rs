@@ -15,6 +15,10 @@ use crate::dataflow::{AbstractValue, AsConcrete, ConstLocation, LoadedFunction, 
 
 /// A custom constant that has been successfully hashed via [`TryHash`](hugr_core::ops::constant::TryHash)
 #[derive(Clone, Debug)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub struct HashedConst {
     hash: u64,
     pub(super) val: Arc<OpaqueValue>,
@@ -46,6 +50,10 @@ impl Hash for HashedConst {
 
 /// An [Eq]-able and [Hash]-able leaf (non-[Sum](Value::Sum)) Value
 #[derive(Clone, Debug)]
+#[deprecated(
+    note = "`hugr-passes` is deprecated. Use tket::passes instead",
+    since = "0.26.2"
+)]
 pub enum ValueHandle<N = Node> {
     /// A [`Value::Extension`] that has been hashed
     Hashable(HashedConst),
