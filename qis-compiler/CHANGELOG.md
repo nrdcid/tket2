@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.3.0](https://github.com/Quantinuum/tket2/compare/qis-compiler-v0.2.10...qis-compiler-v0.3.0) (2026-04-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* Renamed
+* Updated public `hugr` dependency to `0.26.0`.
+
+### Features
+
+* Follow pass scopes in composable passes ([#1429](https://github.com/Quantinuum/tket2/issues/1429)) ([ae0016c](https://github.com/Quantinuum/tket2/commit/ae0016ce15182daedde0cca4f871178a80d5901c))
+* Move hugr-passes implementations to tket::passes ([#1487](https://github.com/Quantinuum/tket2/issues/1487)) ([cc5ca5c](https://github.com/Quantinuum/tket2/commit/cc5ca5ca8ce2492be11dcd0fc2c8504a02f5e82e))
+* Pass scopes in python API, update to hugr-py 0.16 ([#1464](https://github.com/Quantinuum/tket2/issues/1464)) ([369aba2](https://github.com/Quantinuum/tket2/commit/369aba22aa31f0e819074af8d96e8b38704c51ee))
+* Update to hugr 0.26.0 ([#1448](https://github.com/Quantinuum/tket2/issues/1448)) ([f43a877](https://github.com/Quantinuum/tket2/commit/f43a877e2a5295a88de1bd9f13d83d8fe238df35))
+
+
+### Bug Fixes
+
+* Bundle additional extensions while roundtripping to rust in tket passes ([#1372](https://github.com/Quantinuum/tket2/issues/1372)) ([225a7fc](https://github.com/Quantinuum/tket2/commit/225a7fc3fc940cd4b320b15c359680321f854b0b))
+
 ## [0.2.10](https://github.com/quantinuum/tket2/compare/qis-compiler-v0.2.9...qis-compiler-v0.2.10) (2025-11-10)
 
 
