@@ -20,18 +20,10 @@ extensions = [
     "sphinx_copybutton",
     "myst_nb",
     "sphinx_autodoc_typehints",
-    "sphinx.ext.coverage",
 ]
 
 autosummary_ignore_module_all = False  # Respect __all__ if specified
 autosummary_generate = True
-
-
-coverage_modules = ["tket.passes"]
-coverage_ignore_modules = [
-    "tket.passes._*",
-]
-coverage_statistics_to_stdout = False
 
 
 # -- Options for HTML output -------------------------------------------------
