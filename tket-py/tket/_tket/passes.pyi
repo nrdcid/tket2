@@ -2,6 +2,7 @@ from pathlib import Path
 
 from .optimiser import BadgerOptimiser
 from .state import CompilationState
+from hugr.passes.scope import PassScope, GlobalScope
 
 class CircuitChunks:
     def reassemble(self) -> CompilationState:
@@ -26,6 +27,7 @@ def normalize_guppy(
     inline_dfgs: bool = True,
     remove_redundant_order_edges: bool = True,
     squash_borrows: bool = True,
+    scope: PassScope = GlobalScope.PRESERVE_PUBLIC,
 ) -> None:
     """Flatten the structure of a Guppy-generated program to enable additional optimisations.
 
@@ -64,7 +66,7 @@ def tket1_pass(
     circ: CompilationState,
     pass_json: str,
     *,
-    traverse_subcircuits: bool = True,
+    scope: PassScope | None = None,
 ) -> None:
     """Runs a pytket pass on all circuit-like regions under the entrypoint of the
     HUGR.
