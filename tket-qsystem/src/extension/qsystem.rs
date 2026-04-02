@@ -29,12 +29,12 @@ use hugr::{
     type_row,
     types::{PolyFuncType, Signature, Type, TypeArg, TypeRow, type_param::TypeParam},
 };
+use tket::{TketOp, extension::measurement_type};
 
 use crate::extension::futures;
 use derive_more::Display;
 use lazy_static::lazy_static;
 use strum::{EnumIter, EnumString, IntoStaticStr};
-use tket::extension::bool::{OpaqueBoolOp, opaque_bool_type};
 
 use super::futures::future_type;
 
@@ -127,7 +127,7 @@ impl MakeOpDef for QSystemOp {
             }
             Reset => Signature::new(one_qb_row.clone(), one_qb_row.clone()),
             ZZPhase => Signature::new(vec![qb_t(), qb_t(), float64_type()], two_qb_row),
-            Measure => Signature::new(one_qb_row.clone(), vec![opaque_bool_type()]),
+            Measure => Signature::new(one_qb_row.clone(), vec![measurement_type()]),
             Rz => Signature::new(vec![qb_t(), float64_type()], one_qb_row.clone()),
             PhasedX => Signature::new(
                 vec![qb_t(), float64_type(), float64_type()],
@@ -138,7 +138,7 @@ impl MakeOpDef for QSystemOp {
                 vec![Type::from(option_type(one_qb_row.clone()))],
             ),
             QFree => Signature::new(one_qb_row.clone(), type_row![]),
-            MeasureReset => Signature::new(one_qb_row, vec![qb_t(), opaque_bool_type()]),
+            MeasureReset => Signature::new(one_qb_row, vec![qb_t(), measurement_type()]),
         }
         .into()
     }
@@ -497,7 +497,7 @@ pub trait QSystemOpBuilder: Dataflow + UnwrapBuilder + ArrayOpBuilder {
     /// Build a projective measurement with a conditional flip.
     fn build_measure_flip(&mut self, qb: Wire) -> Result<[Wire; 2], BuildError> {
         let [qb, b] = self.add_measure_reset(qb)?;
-        let sum_b = self.add_dataflow_op(OpaqueBoolOp::read, [b])?.out_wire(0);
+        let sum_b = self.add_dataflow_op(TketOp::Read, [b])?.out_wire(0);
         let mut conditional = self.conditional_builder(
             ([type_row![], type_row![]], sum_b),
             [(qb_t(), qb)],
@@ -619,7 +619,7 @@ mod test {
         let hugr = {
             let mut func_builder = FunctionBuilder::new(
                 "all_ops",
-                Signature::new(vec![qb_t(), float64_type()], vec![opaque_bool_type()]),
+                Signature::new(vec![qb_t(), float64_type()], vec![measurement_type()]),
             )
             .unwrap();
             let [q0, angle] = func_builder.input_wires_arr();

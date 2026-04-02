@@ -72,11 +72,19 @@ impl TketOpEmitter {
             TketOp::Ry => PytketOptype::Ry,
             TketOp::Toffoli => PytketOptype::CCX,
             TketOp::Reset => PytketOptype::Reset,
-            TketOp::Measure => PytketOptype::Measure,
+            TketOp::Measure => {
+                // As the measurement type is not supported, we don't translate 
+                // measure ops as well for now.
+                return Ok(EncodeStatus::Unsupported);
+            },
             // We translate `MeasureFree` the same way as a `Measure` operation.
             // Since the node does not have outputs the qubit/bit will simply be ignored,
             // but will appear when collecting the final pytket registers.
-            TketOp::MeasureFree => PytketOptype::Measure,
+            TketOp::MeasureFree => {
+                // As the measurement type is not supported, we don't translate 
+                // measure ops as well for now.
+                return Ok(EncodeStatus::Unsupported);
+            },
             // These operations are implicitly supported by the encoding,
             // they do not create a new command but just modify the value trackers.
             TketOp::QAlloc => {
@@ -93,6 +101,11 @@ impl TketOpEmitter {
             }
             // Unsupported
             TketOp::TryQAlloc => {
+                return Ok(EncodeStatus::Unsupported);
+            }
+            TketOp::Read => {
+                // As the measurement type is not supported, we don't translate the
+                // read operation as well for now.
                 return Ok(EncodeStatus::Unsupported);
             }
         };

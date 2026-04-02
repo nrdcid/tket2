@@ -112,7 +112,7 @@ pub fn measurement_custom_type(extension_ref: &Weak<Extension>) -> CustomType {
         MEASUREMENT_TYPE_ID.to_owned(),
         vec![],
         TKET_EXTENSION_ID,
-        TypeBound::Copyable,
+        TypeBound::Linear,
         extension_ref,
     )
 }

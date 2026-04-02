@@ -43,7 +43,7 @@ use crate::extension::{
 pub enum ReplaceBoolPassError<N> {
     /// The HUGR was found to contain non-local edges.
     NonLocalEdgesError(FindNonLocalEdgesError<N>),
-    /// There was an error while replacing the type.
+    /// There was an error while replacing the type/ops.
     ReplacementError(ReplaceTypesError),
     /// There was an error while transforming static arrays containing tket.bool
     /// to static arrays of bool_t.
