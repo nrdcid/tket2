@@ -8,7 +8,7 @@
 
 
 project = "tket-py"
-copyright = "2025, Quantinuum compiler team"
+copyright = "2026, Quantinuum compiler team"
 author = "Quantinuum compiler team"
 
 # -- General configuration ---------------------------------------------------
@@ -20,12 +20,18 @@ extensions = [
     "sphinx_copybutton",
     "myst_nb",
     "sphinx_autodoc_typehints",
+    "sphinx.ext.coverage",
 ]
 
 autosummary_ignore_module_all = False  # Respect __all__ if specified
 autosummary_generate = True
 
-templates_path = ["_templates"]
+
+coverage_modules = ["tket.passes"]
+coverage_ignore_modules = [
+    "tket.passes._*",
+]
+coverage_statistics_to_stdout = False
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -54,6 +60,7 @@ exclude_patterns = [
     "**/jupyter_execute",
     "jupyter_execute/*",
     ".jupyter_cache",
+    "build/**",
     "*.venv",
     "README.md",
     "**/README.md",

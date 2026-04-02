@@ -2,19 +2,10 @@
 
 ## API documentation
 ```{eval-rst}
-.. autosummary::
-   :toctree: generated
+.. toctree::
    :caption: API documentation
-   :template: autosummary/module.rst
-   :recursive:
 
-   tket.circuit
-   tket.ops
-   tket.optimiser
-   tket.pattern
-   tket.rewrite
-   tket.passes
-   tket.types
+   passes.md
 
 .. toctree::
    :caption: Examples

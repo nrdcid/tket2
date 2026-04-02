@@ -107,8 +107,10 @@ serve-docs: build-pydocs
 # Clean up all generated files
 clean-docs:
     rm -rf tket-py/docs/build
-    rm -rf tket-py/docs/generated
     rm -rf tket-py/docs/jupyter_execute
+
+docs-linkcheck:
+    cd tket-py/docs && uv run sphinx-build -W -b linkcheck . build
 
 clean-env:
     uv clean
