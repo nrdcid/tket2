@@ -15,10 +15,13 @@ use crate::serialize::pytket::{PytketDecodeError, PytketEncodeError};
 use hugr::HugrView;
 use hugr::extension::ExtensionId;
 use hugr::extension::simple_op::MakeExtensionOp;
+use hugr::extension::prelude::{bool_t, Noop};
 use hugr::ops::ExtensionOp;
 use hugr::ops::constant::OpaqueValue;
+use hugr::ops::Value;
 use itertools::Itertools;
 use tket_json_rs::clexpr::op::ClOp;
+use tket_json_rs::circuit_json::Classical;
 use tket_json_rs::clexpr::operator::{ClArgument, ClOperator, ClTerminal, ClVariable};
 
 /// Encoder for [prelude](hugr::extension::prelude) operations.
@@ -113,7 +116,11 @@ impl PytketTypeTranslator for BoolEmitter {
 
 impl PytketDecoder for BoolEmitter {
     fn op_types(&self) -> Vec<tket_json_rs::OpType> {
-        vec![tket_json_rs::OpType::ClExpr]
+        vec![
+            tket_json_rs::OpType::ClExpr,
+            tket_json_rs::OpType::SetBits,
+            tket_json_rs::OpType::CopyBits
+        ]
     }
 
     fn op_to_hugr<'h>(
