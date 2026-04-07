@@ -79,3 +79,13 @@ def tket1_pass(
       circuit-like regions, and optimise them too.
       nested inside other subregions of the circuit.
     """
+
+def resolve_modifiers(
+    circ: CompilationState, scope: PassScope = GlobalScope.PRESERVE_PUBLIC
+) -> None:
+    """
+    Runs a Rust backed pass to resolve quantum modifiers (control, dagger, power).
+
+    :param circ: The input program as a CompilationState.
+    :param scope: A scope to control how the pass is applied to HUGR regions.
+    """
