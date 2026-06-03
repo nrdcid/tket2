@@ -31,6 +31,7 @@ __all__ = [
     "NormalizeGuppy",
     "ModifierResolverPass",
     "QSystemPass",
+    "Cliffordize",
 ]
 
 
@@ -147,6 +148,42 @@ class NormalizeGuppy(ComposablePass):
             scope=self._scope,
         )
         return program
+
+
+@dataclass
+class Cliffordize(ComposablePass):
+    _scope: PassScope = GlobalScope.PRESERVE_PUBLIC
+
+    """v1: Replace supported non-Clifford operations with Clifford operations.
+    This pass is intended for debugging and Clifford-only simulation workflows. It is not semantics-preserving.
+    """
+
+    def run(self, hugr: Hugr, *, inplace: bool = True) -> PassResult:
+        return implement_pass_run(
+            self,
+            hugr=hugr,
+            inplace=inplace,
+            copy_call=lambda h: self._cliffordize(h, inplace),
+        )
+
+    def with_scope(self, scope: PassScope) -> Cliffordize:
+        """Set the scope of this pass and return self."""
+        self._scope = scope
+        return self
+
+    def _cliffordize(self, hugr: Hugr, inplace: bool) -> PassResult:
+        tk_program = _state.CompilationState.from_python(hugr)
+
+        rewrite_count = self._run_tk(tk_program)
+
+        package = tk_program.to_python()
+        return PassResult.for_pass(
+            self, hugr=package.modules[0], inplace=inplace, result=rewrite_count
+        )
+
+    def _run_tk(self, program: _state.CompilationState) -> int:
+        """Run the pass in the CompilationState."""
+        raise NotImplementedError("Cliffordize rewrite rules are not implemented yet.")
 
 
 @dataclass
