@@ -60,6 +60,23 @@ def _nested_t_hugr() -> Hugr:
     return module.hugr
 
 
+def _cfg_t_hugr() -> Hugr:
+    module = Module()
+    main = module.define_function("main", [tys.Qubit], visibility="Public")
+    [main_q] = main.inputs()
+
+    cfg = main.add_cfg(main_q)
+    entry = cfg.add_entry()
+    [entry_q] = entry.inputs()
+    entry_t = entry.add(T(entry_q))
+    entry.set_single_succ_outputs(entry_t.out(0))
+    cfg.branch_exit(entry[0])
+
+    main.set_outputs(cfg.parent_node.out(0))
+    module.hugr.entrypoint = main.parent_node
+    return module.hugr
+
+
 def test_cliffordize_respects_scope_and_restores_entrypoint() -> None:
     input_hugr = _nested_t_hugr()
     original_entrypoint = input_hugr.entrypoint
@@ -77,6 +94,16 @@ def test_cliffordize_respects_scope_and_restores_entrypoint() -> None:
     assert _count_gate(global_result.hugr, "T") == 0
     assert _count_gate(global_result.hugr, "S") == 1
     assert global_result.hugr.entrypoint == original_entrypoint
+
+
+def test_cliffordize_skips_non_circuit_scope_regions() -> None:
+    input_hugr = _cfg_t_hugr()
+
+    result = Cliffordize().run(input_hugr, inplace=False)
+
+    assert result.results == [("Cliffordize", 1)]
+    assert _count_gate(result.hugr, "T") == 0
+    assert _count_gate(result.hugr, "S") == 1
 
 
 def test_cliffordize_leaves_unsupported_operations_unchanged() -> None:

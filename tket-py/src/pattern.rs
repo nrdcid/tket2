@@ -12,7 +12,7 @@ use crate::utils::{ConvertPyErr, create_py_exception};
 use hugr::{HugrView, Node, hugr::hugrmut::HugrMut};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use tket::Circuit;
+use tket::{Circuit, CircuitError};
 use tket::portmatching::{CircuitPattern, PatternMatch, PatternMatcher};
 
 /// The module definition
@@ -127,7 +127,8 @@ impl RuleMatcher {
     }
 
     pub fn find_match(&self, target: &CompilationState) -> PyResult<Option<PyCircuitRewrite>> {
-        let circ = Circuit::new(&target.hugr);
+        let circ = Circuit::try_new(&target.hugr)
+            .map_err(|error| PyValueError::new_err(error.to_string()))?;
         let Some(pmatch) = self.matcher.find_matches_iter(&circ).next() else {
             return Ok(None);
         };
@@ -135,16 +136,19 @@ impl RuleMatcher {
     }
 
     pub fn find_matches(&self, target: &CompilationState) -> PyResult<Vec<PyCircuitRewrite>> {
-        let circ = Circuit::new(&target.hugr);
+        let circ = Circuit::try_new(&target.hugr)
+            .map_err(|error| PyValueError::new_err(error.to_string()))?;
         self.matcher
             .find_matches_iter(&circ)
             .map(|m| self.match_to_rewrite(m, &circ))
             .collect()
     }
 
-    /// Apply the first matching rule repeatedly within the selected scope.
+    /// Apply the first matching rule repeatedly within each circuit-compatible
+    /// region in the selected scope.
     ///
-    /// Returns the number of rewrites applied.
+    /// Non-circuit regions are skipped. Returns the number of rewrites applied
+    /// and restores the original HUGR entrypoint before returning.
     #[pyo3(signature = (target, scope = None))]
     pub fn apply_exhaustive(
         &self,
@@ -159,6 +163,12 @@ impl RuleMatcher {
             let mut rewrite_count = 0;
             for region in regions {
                 target.hugr.set_entrypoint(region);
+                match Circuit::try_new(&target.hugr) {
+                    Ok(_) => {}
+                    Err(CircuitError::InvalidParentOp { .. }) => continue,
+                    Err(error) => return Err(anyhow::Error::msg(error.to_string())),
+                }
+
                 while let Some(rewrite) = self.find_match(target)? {
                     target
                         .apply_rewrite(rewrite)

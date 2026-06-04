@@ -43,6 +43,8 @@ class RuleMatcher:
         """Apply the first matching rule repeatedly within the selected scope.
 
         Mutates the provided circuit and returns the number of rewrites applied.
+        Non-circuit scope regions are skipped, and the original HUGR entrypoint
+        is restored before returning, including when an error occurs.
         """
 
 class CircuitPattern:
