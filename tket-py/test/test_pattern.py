@@ -71,7 +71,9 @@ def test_apply_exhaustive_restores_entrypoint_after_error() -> None:
         [Rule(_single_gate_module(T)._inner, from_coms(CX(0, 1))._inner)]
     )
 
-    with pytest.raises(InvalidReplacementError, match="Replacement graph type mismatch"):
+    with pytest.raises(
+        InvalidReplacementError, match="Replacement graph type mismatch"
+    ):
         invalid_matcher.apply_exhaustive(state._inner)
 
     assert state.to_python().modules[0].entrypoint == original_entrypoint
