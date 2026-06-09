@@ -18,6 +18,7 @@ use inkwell::targets::{
 };
 use itertools::Itertools;
 use pyo3::prelude::*;
+use tket::hugr::llvm::emit::EmitDebugInfo;
 use tket::hugr::ops::DataflowParent;
 use tket::passes::composable::ComposablePass;
 
@@ -27,7 +28,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::vec::Vec;
 use std::{fs, str, vec};
-use tket::extension::{TKET_EXTENSION, TKET1_EXTENSION, debug, measurement, rotation};
+use tket::extension::{TKET_EXTENSION, TKET1_EXTENSION, rotation};
 use tket::hugr::extension::{ExtensionRegistry, prelude};
 use tket::hugr::std_extensions::arithmetic::{
     conversions, float_ops, float_types, int_ops, int_types,
@@ -38,8 +39,8 @@ use tket::hugr::{Hugr, HugrView, Node};
 use tket::llvm::rotation::RotationCodegenExtension;
 use tket_qsystem::QSystemPass;
 use tket_qsystem::extension::{
-    futures as qsystem_futures, gpu as qsystem_gpu, qsystem, result as qsystem_result,
-    wasm as qsystem_wasm,
+    futures as qsystem_futures, gpu as qsystem_gpu, qsystem, random as qsystem_random,
+    result as qsystem_result, utils as qsystem_utils, wasm as qsystem_wasm,
 };
 use tket_qsystem::llvm::array_utils::ArrayLowering;
 pub use tket_qsystem::llvm::futures::FuturesCodegenExtension;
@@ -76,13 +77,15 @@ static REGISTRY: std::sync::LazyLock<ExtensionRegistry> = std::sync::LazyLock::n
         qsystem::EXTENSION.to_owned(),
         qsystem::helios::EXTENSION.to_owned(),
         qsystem::sol::EXTENSION.to_owned(),
+        qsystem_random::EXTENSION.to_owned(),
+        qsystem_utils::EXTENSION.to_owned(),
+        qsystem_gpu::EXTENSION.to_owned(),
+        qsystem_wasm::EXTENSION.to_owned(),
         rotation::ROTATION_EXTENSION.to_owned(),
         TKET_EXTENSION.to_owned(),
         TKET1_EXTENSION.to_owned(),
-        debug::DEBUG_EXTENSION.to_owned(),
-        measurement::MEASUREMENT_EXTENSION.to_owned(),
-        qsystem_gpu::EXTENSION.to_owned(),
-        qsystem_wasm::EXTENSION.to_owned(),
+        tket::extension::debug::DEBUG_EXTENSION.to_owned(),
+        tket::extension::guppy::GUPPY_EXTENSION.to_owned(),
     ])
 });
 
@@ -142,8 +145,13 @@ fn get_hugr_llvm_module<'c, 'hugr, 'a: 'c>(
     let module = context.create_module(module_name.as_ref());
     let emit = EmitHugr::new(context, module, namer, exts);
     Ok(emit
-        .emit_module(hugr.try_fat(hugr.module_root()).unwrap())?
-        .finish())
+        // TODO: Add debug info support <https://github.com/Quantinuum/tket2/pull/1521>
+        .emit_module(
+            hugr.try_fat(hugr.module_root()).unwrap(),
+            EmitDebugInfo::Exclude,
+        )?
+        .finish()
+        .0) // Discard DebugInfoContext
 }
 
 fn process_hugr(platform: qsystem::QSystemPlatform, hugr: &mut Hugr) -> Result<()> {
