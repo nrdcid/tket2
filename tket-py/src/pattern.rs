@@ -149,6 +149,8 @@ impl RuleMatcher {
     ///
     /// Non-circuit regions are skipped. Returns the number of rewrites applied
     /// and restores the original HUGR entrypoint before returning.
+    ///
+    /// Returns a count of applied rewrites.
     #[pyo3(signature = (target, scope = None))]
     pub fn apply_exhaustive(
         &self,
