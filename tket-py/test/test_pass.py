@@ -356,7 +356,6 @@ def test_normalize_guppy_on_modifier() -> None:
     runs without errors."""
     normalize = NormalizeGuppy()
     for hugr_path in sorted(Path("test_files/modifier_examples").glob("*.hugr")):
-        print(f"Testing NormalizeGuppy on {hugr_path}")
         try:
             normalized = normalize(_hugr_from_path(str(hugr_path)))
             CompilationState.from_python(normalized).validate()
@@ -423,7 +422,6 @@ def test_python_qsystem_pass_with_modifiers() -> None:
         try:
             qsystem_hugr = qsystem_llvm(qsystem_rebase(_hugr_from_path(str(hugr_path))))
             CompilationState.from_python(qsystem_hugr).validate()
-
         except Exception as exc:
             raise AssertionError(f"QSystem passes failed for {hugr_path}") from exc
         assert not _contains_modifiers(qsystem_hugr), (
