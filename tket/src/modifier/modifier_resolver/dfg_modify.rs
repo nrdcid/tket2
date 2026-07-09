@@ -534,12 +534,22 @@ impl<N: HugrNode> ModifierResolver<N> {
         h: &mut impl HugrMut<Node = N>,
         n: N,
         dfg: &DFG,
-        parent_dfg: &mut impl Container,
+        new_parent_dfg: &mut impl Container,
     ) -> Result<(), ModifierResolverErrors<N>> {
-        // Check if the DFG input or output are carrying qubits: only DFGs with quantum effects need to be modified.
+        // Check if the DFG input or output are carrying qubits
         let boundary_has_qubits = self.signature_has_quantum_data(&dfg.signature);
         if !boundary_has_qubits {
-            self.copy_sub_container_no_modification(h, n, parent_dfg)?;
+            // If the DFG does not carry qubits, we still modify its body in case it contains modifier nodes.
+            // Since there are no input/output qubits, modifiers inside the DFG cannot affect the outside of
+            // the DFG, so we can safely resolve them without worrying about the surrounding context.
+            let new_dfg = self.with_modifiers(Default::default(), |this| {
+                let mut builder = DFGBuilder::new(dfg.signature.clone()).unwrap();
+                this.modify_dfg_body(h, n, &mut builder)?;
+                this.insert_sub_dfg(new_parent_dfg, builder)
+            })?;
+            for port in h.all_node_ports(n) {
+                self.map_insert(DirWire(n, port), DirWire(new_dfg, port))?;
+            }
             return Ok(());
         }
 
@@ -551,11 +561,11 @@ impl<N: HugrNode> ModifierResolver<N> {
         self.modify_signature(&mut signature, true);
         let mut builder = DFGBuilder::new(signature.clone()).unwrap();
         self.modify_dfg_body(h, n, &mut builder)?;
-        let new_dfg = self.insert_sub_dfg(parent_dfg, builder)?;
+        let new_dfg = self.insert_sub_dfg(new_parent_dfg, builder)?;
 
         // connect the controls and register the IOs
         for (i, c) in self.controls().iter_mut().enumerate() {
-            parent_dfg
+            new_parent_dfg
                 .hugr_mut()
                 .connect(c.node(), c.source(), new_dfg, i);
             *c = Wire::new(new_dfg, i);
@@ -1488,10 +1498,62 @@ mod test {
         *func.finish_with_outputs([q]).unwrap().handle()
     }
 
+    /// Test pass on a DFG with no quantum signature that contains a modifier (dagger)
+    /// (https://github.com/Quantinuum/tket2/issues/1814)
+    fn foo_dfg_daggered_empty_indirect_call(
+        module: &mut ModuleBuilder<Hugr>,
+        t_num: usize,
+    ) -> FuncID<true> {
+        assert_eq!(t_num, 1);
+
+        let empty_sig = Signature::new_endo(type_row![]);
+        let empty = {
+            let mut func = module.define_function("empty", empty_sig.clone()).unwrap();
+            func.set_unitary();
+            func.finish_with_outputs([]).unwrap()
+        };
+
+        let dagger_op: ExtensionOp = MODIFIER_EXTENSION
+            .instantiate_extension_op(&DAGGER_OP_ID, [vec![].into(), vec![].into()])
+            .unwrap();
+
+        let foo_sig = Signature::new_endo([qb_t()]);
+        let mut func = module.define_function("foo", foo_sig).unwrap();
+        func.set_unitary();
+        let q = func.input_wires().next().unwrap();
+        {
+            let mut dfg = func
+                .dfg_builder(Signature::new_endo(type_row![]), [])
+                .unwrap();
+            let loaded = dfg.load_func(empty.handle(), &[]).unwrap();
+            let daggered = dfg
+                .add_dataflow_op(dagger_op, [loaded])
+                .unwrap()
+                .out_wire(0);
+            dfg.add_dataflow_op(
+                CallIndirect {
+                    signature: empty_sig,
+                },
+                [daggered],
+            )
+            .unwrap();
+            dfg.finish_with_outputs([]).unwrap();
+        }
+
+        *func.finish_with_outputs([q]).unwrap().handle()
+    }
+
     #[rstest::rstest]
     #[case::dfg(1, 2, foo_dfg, false)]
     #[case::dfg_dagger(1, 2, foo_dfg, true)]
     #[case::dfg_external_function_call(1, 1, foo_dfg_external_function_call, true)]
+    #[case::dfg_daggered_empty_indirect_call(1, 1, foo_dfg_daggered_empty_indirect_call, false)]
+    #[case::dfg_daggered_empty_indirect_call_daggered(
+        1,
+        1,
+        foo_dfg_daggered_empty_indirect_call,
+        true
+    )]
     #[case::tail_loop(1, 1, foo_tail_loop, false)]
     #[case::conditional(1, 1, foo_conditional, false)]
     #[case::conditional_dagger(1, 1, foo_conditional, true)]
