@@ -673,11 +673,6 @@ impl<N: HugrNode> ModifierResolver<N> {
 }
 
 impl<N: HugrNode> ModifierResolver<N> {
-    // FIXME: Shouldn't we check that there is a caller of the modified function?
-    // We don't want to modify a function that is loaded and modified but never called.
-    // When more than one modifier is chained, after the last modifier is resolved,
-    // we delete the last modifier node, but the previous modifiers are not deleted.
-    // If the second last modifier was only called by the last modifier, that will not be called anymore.
     fn verify(&self, h: &impl HugrView<Node = N>, n: N) -> Result<(), ModifierError<N>> {
         // Check if the node is a modifier, modifying an operation.
         let optype = h.get_optype(n);
@@ -873,8 +868,9 @@ impl<N: HugrNode> ModifierResolver<N> {
     /// - input: [out0:qubit, in1:int, out1:array[qubit, _], in4:int]
     /// - output: [in0:qubit, in2:qubit, in3:qubit]
     ///
-    /// FIXME: This reverses everything that can contain qubits, which might not be intended in general.
-    /// TODO: Handle state order edges.
+    /// This reverses everything that can contain qubits.
+    // TODO: Handle state order edges.
+    // (see https://github.com/Quantinuum/tket2/issues/1836)
     fn wire_node_inout<'a>(
         &mut self,
         old_node: N,
@@ -1052,7 +1048,6 @@ impl<N: HugrNode> ModifierResolver<N> {
             );
             Ok(())
         } else if Modifier::from_optype(optype).is_some() {
-            // TODO: check if this is ok.
             self.forget_node(h, op_node)
         } else if self.modify_array_op(h, op_node, optype, new_dfg)?
             || self.try_array_convert(h, op_node, optype, new_dfg)?
@@ -1062,8 +1057,8 @@ impl<N: HugrNode> ModifierResolver<N> {
             // Some other Hugr extension operation.
             // Here, we do not know what is the modified version.
             // We try to place the original operation.
-            // TODO: Revisit whether unknown extension operations should return
-            // an explicit error instead of falling back to the original operation.
+            // TODO: Determine when we should raise an error
+            // (see https://github.com/Quantinuum/tket2/issues/1828)
             self.modify_dataflow_op(h, op_node, optype, new_dfg)
         }
     }
@@ -1358,7 +1353,8 @@ pub fn resolve_modifier_with_entrypoints_and_scope(
     // (e.g. intermediate nodes in a chain whose last modifier was the one rewritten).
     // Walk the same reachable set again and delete any surviving modifier nodes,
     // together with every downstream node that consumes their output.
-    // TODO:
+    //
+    // NOTE:
     // This might be insufficient as a cleanup since the resolution procedure might
     // generate nodes that are not reachable from the entry points.
     // If more thorough cleanup is needed, we should run dead code elimination.
@@ -1391,26 +1387,7 @@ pub fn resolve_modifier_with_entrypoints_and_scope(
             }
         }
     }
-    // Alternatively, we can just remove all the modifiers in the graph.
-    // let entry_points = vec![h.module_root()];
-    // for entry_point in entry_points.clone() {
-    //     let descendants = h.descendants(entry_point).collect::<Vec<_>>();
-    //     for node in descendants {
-    //         if !h.contains_node(node) {
-    //             continue;
-    //         }
-    //         let optype = h.get_optype(node);
-    //         if Modifier::from_optype(optype).is_some() {
-    //             let mut l = vec![node];
-    //             while let Some(n) = l.pop() {
-    //                 l.extend(h.output_neighbours(n));
-    //                 h.remove_node(n);
-    //             }
-    //         }
-    //     }
-    // }
 
-    // TODO: This as well.
     // Ad hoc cleanup procedure: remove any dangling global-phase nodes that
     // were produced or left behind by the resolution passes above.
     delete_phase(h, entry_points)?;
